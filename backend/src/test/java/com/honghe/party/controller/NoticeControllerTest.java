@@ -33,6 +33,9 @@ public class NoticeControllerTest {
     @Mock
     private NoticeDispatchService noticeDispatchService;
 
+    @Mock
+    private com.honghe.party.notice.NoticeChannelFactory channelFactory;
+
     @InjectMocks
     private NoticeController noticeController;
 
@@ -78,16 +81,17 @@ public class NoticeControllerTest {
     @Test
     @DisplayName("测试渠道连通性测试接口")
     void testChannelPing() {
+        when(channelMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(channel);
+        when(channelFactory.getHandler("IN_APP")).thenReturn(new com.honghe.party.notice.handler.InAppChannelHandler());
+
         Map<String, String> payload = new HashMap<>();
         payload.put("target", "admin@honghe.com");
 
-        Result<String> result = noticeController.testChannel("IN_APP", payload);
+        Result<com.honghe.party.notice.dto.ChannelSendResult> result = noticeController.testChannel("IN_APP", payload);
 
         assertEquals(200, result.getCode());
-        assertTrue(result.getMessage().contains("测试消息已成功推送"));
-        verify(noticeDispatchService, times(1)).sendNotice(
-                eq("IN_APP"), any(), any(), any(), any(), any(), any(), eq("admin@honghe.com"), any(), any()
-        );
+        assertTrue(result.getData().isSuccess());
+        assertEquals("IN_APP", result.getData().getChannelCode());
     }
 
     @Test

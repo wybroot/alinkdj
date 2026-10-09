@@ -7,6 +7,10 @@ import com.honghe.party.entity.SysNoticeLog;
 import com.honghe.party.mapper.PartyMemberMapper;
 import com.honghe.party.mapper.SysNoticeChannelMapper;
 import com.honghe.party.mapper.SysNoticeLogMapper;
+import com.honghe.party.notice.NoticeChannelFactory;
+import com.honghe.party.notice.NoticeChannelHandler;
+import com.honghe.party.notice.dto.ChannelSendResult;
+import com.honghe.party.notice.dto.NoticeMessagePayload;
 import com.honghe.party.service.NoticeDispatchService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,12 +34,16 @@ public class NoticeDispatchServiceImpl implements NoticeDispatchService {
     @Autowired
     private PartyMemberMapper partyMemberMapper;
 
+    @Autowired
+    private NoticeChannelFactory channelFactory;
+
     @Override
     public SysNoticeLog sendNotice(String channelCode, String noticeType, String title, String content,
                                    String receiverType, Long receiverId, String receiverName, String receiverTarget,
                                    Long relatedMemberId, Integer relatedStepCode) {
         SysNoticeLog logRecord = new SysNoticeLog();
-        logRecord.setChannelCode(channelCode != null ? channelCode : "IN_APP");
+        String targetChannelCode = (channelCode != null && !channelCode.trim().isEmpty()) ? channelCode.trim().toUpperCase() : "IN_APP";
+        logRecord.setChannelCode(targetChannelCode);
         logRecord.setNoticeType(noticeType != null ? noticeType : "REGULAR");
         logRecord.setTitle(title);
         logRecord.setContent(content);
@@ -49,19 +57,45 @@ public class NoticeDispatchServiceImpl implements NoticeDispatchService {
         logRecord.setCreatedAt(LocalDateTime.now());
         logRecord.setSendTime(LocalDateTime.now());
 
-        // 模拟各渠道发送执行与状态判定
+        // 1. 查询对应渠道配置状态
         SysNoticeChannel channel = noticeChannelMapper.selectOne(
-                new LambdaQueryWrapper<SysNoticeChannel>().eq(SysNoticeChannel::getChannelCode, logRecord.getChannelCode())
+                new LambdaQueryWrapper<SysNoticeChannel>().eq(SysNoticeChannel::getChannelCode, targetChannelCode)
         );
 
         if (channel != null && channel.getEnabled() == 0) {
             logRecord.setSendStatus(2);
             logRecord.setErrorMsg("渠道 [" + channel.getChannelName() + "] 已被管理员停用");
+            log.warn("【党建通知调度中心】渠道已停用，拒绝发送: {}", channel.getChannelName());
         } else {
-            // 模拟发送成功
-            logRecord.setSendStatus(1);
-            log.info("【党建通知调度中心】通知发送成功 -> 渠道: {}, 接收人: {}, 标题: {}", 
-                    logRecord.getChannelCode(), receiverName, title);
+            // 2. 根据渠道策略工厂获取差异化 Handler 执行真实协议封包与发送
+            NoticeChannelHandler handler = channelFactory.getHandler(targetChannelCode);
+            if (handler == null) {
+                logRecord.setSendStatus(2);
+                logRecord.setErrorMsg("未识别的通知渠道服务: " + targetChannelCode);
+            } else {
+                NoticeMessagePayload payload = NoticeMessagePayload.builder()
+                        .noticeType(logRecord.getNoticeType())
+                        .title(title)
+                        .content(content)
+                        .receiverType(logRecord.getReceiverType())
+                        .receiverId(receiverId)
+                        .receiverName(receiverName)
+                        .receiverTarget(receiverTarget)
+                        .relatedMemberId(relatedMemberId)
+                        .relatedStepCode(relatedStepCode)
+                        .build();
+
+                ChannelSendResult sendResult = handler.send(channel, payload);
+                if (sendResult.isSuccess()) {
+                    logRecord.setSendStatus(1);
+                    log.info("【党建通知调度中心】通知经渠道 [{}] 成功分发 -> 消息ID: {}, 接收人: {}", 
+                            handler.getChannelName(), sendResult.getMessageId(), receiverName);
+                } else {
+                    logRecord.setSendStatus(2);
+                    logRecord.setErrorMsg(sendResult.getErrorMsg());
+                    log.error("【党建通知调度中心】渠道 [{}] 分发失败: {}", handler.getChannelName(), sendResult.getErrorMsg());
+                }
+            }
         }
 
         noticeLogMapper.insert(logRecord);

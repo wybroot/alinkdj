@@ -7,6 +7,9 @@ import com.honghe.party.entity.SysNoticeLog;
 import com.honghe.party.mapper.PartyMemberMapper;
 import com.honghe.party.mapper.SysNoticeChannelMapper;
 import com.honghe.party.mapper.SysNoticeLogMapper;
+import com.honghe.party.notice.NoticeChannelFactory;
+import com.honghe.party.notice.dto.ChannelSendResult;
+import com.honghe.party.notice.handler.*;
 import com.honghe.party.service.impl.NoticeDispatchServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -35,6 +39,15 @@ public class NoticeDispatchServiceTest {
     @Mock
     private PartyMemberMapper partyMemberMapper;
 
+    @Spy
+    private NoticeChannelFactory channelFactory = new NoticeChannelFactory(Arrays.asList(
+            new WeChatWorkChannelHandler(),
+            new DingTalkChannelHandler(),
+            new SmsChannelHandler(),
+            new EmailChannelHandler(),
+            new InAppChannelHandler()
+    ));
+
     @InjectMocks
     private NoticeDispatchServiceImpl noticeDispatchService;
 
@@ -47,16 +60,17 @@ public class NoticeDispatchServiceTest {
         wechatChannel.setChannelCode("WECHAT_WORK");
         wechatChannel.setChannelName("企业微信应用消息");
         wechatChannel.setEnabled(1);
+        wechatChannel.setConfigJson("{\"corpId\":\"ww_test_123\",\"agentId\":\"100008\",\"secret\":\"sec_test\"}");
     }
 
     @Test
-    @DisplayName("测试发送通知 - 渠道正常启用")
+    @DisplayName("测试发送通知 - 企微渠道正常启用并封装报文成功")
     void testSendNoticeEnabled() {
         when(noticeChannelMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(wechatChannel);
 
         SysNoticeLog log = noticeDispatchService.sendNotice(
                 "WECHAT_WORK", "DEADLINE_WARNING", "【谈话临期】测试通知",
-                "请尽快完成谈话", "USER", 101L, "张强", "13800000000", 101L, 2
+                "请尽快完成谈话", "USER", 101L, "张强", "zhangqiang", 101L, 2
         );
 
         assertNotNull(log);
@@ -109,7 +123,11 @@ public class NoticeDispatchServiceTest {
     @Test
     @DisplayName("测试三会一课广播通知")
     void testSendMeetingBroadcast() {
-        when(noticeChannelMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(wechatChannel);
+        SysNoticeChannel inAppChannel = new SysNoticeChannel();
+        inAppChannel.setChannelCode("IN_APP");
+        inAppChannel.setChannelName("站内信");
+        inAppChannel.setEnabled(1);
+        when(noticeChannelMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(inAppChannel);
 
         List<String> attendees = Arrays.asList("朱文华", "李建忠", "周国平");
         int count = noticeDispatchService.sendMeetingBroadcast(1L, "10月支部大会", "2026-10-15", "党建活动室", attendees);

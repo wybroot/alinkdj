@@ -6,6 +6,9 @@ import com.honghe.party.entity.SysNoticeChannel;
 import com.honghe.party.entity.SysNoticeLog;
 import com.honghe.party.mapper.SysNoticeChannelMapper;
 import com.honghe.party.mapper.SysNoticeLogMapper;
+import com.honghe.party.notice.NoticeChannelFactory;
+import com.honghe.party.notice.NoticeChannelHandler;
+import com.honghe.party.notice.dto.ChannelSendResult;
 import com.honghe.party.service.NoticeDispatchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +29,9 @@ public class NoticeController {
 
     @Autowired
     private NoticeDispatchService noticeDispatchService;
+
+    @Autowired
+    private NoticeChannelFactory channelFactory;
 
     /**
      * 获取所有通知渠道列表及配置状态
@@ -50,15 +56,30 @@ public class NoticeController {
     }
 
     /**
-     * 测试渠道联通性
+     * 测试指定渠道真实通信协议联通性
      */
     @PostMapping("/channels/{channelCode}/test")
-    public Result<String> testChannel(@PathVariable String channelCode, @RequestBody Map<String, String> payload) {
-        String testTarget = payload.getOrDefault("target", "admin@honghe.com");
-        noticeDispatchService.sendNotice(channelCode, "REGULAR", "【联通性测试】红河智慧党建渠道测试消息",
-                "这是一条渠道连通性验证测试消息，来自红河数据产业集团智慧党建系统。",
-                "USER", 1L, "测试接收人", testTarget, null, null);
-        return Result.success("测试消息已成功推送并留痕", "OK");
+    public Result<ChannelSendResult> testChannel(@PathVariable String channelCode, @RequestBody Map<String, String> payload) {
+        String testTarget = payload.getOrDefault("target", "admin@honghe-data.com");
+        SysNoticeChannel channel = channelMapper.selectOne(
+                new LambdaQueryWrapper<SysNoticeChannel>().eq(SysNoticeChannel::getChannelCode, channelCode.toUpperCase())
+        );
+
+        if (channel != null && channel.getEnabled() == 0) {
+            return Result.error(400, "渠道 [" + channel.getChannelName() + "] 当前处于停用状态，请先启用后再进行联通测试");
+        }
+
+        NoticeChannelHandler handler = channelFactory.getHandler(channelCode);
+        if (handler == null) {
+            return Result.error(404, "未找到该渠道服务处理器: " + channelCode);
+        }
+
+        ChannelSendResult testResult = handler.testConnection(channel, testTarget);
+        if (testResult.isSuccess()) {
+            return Result.success("渠道通信协议探活正常 (RTT响应正常)", testResult);
+        } else {
+            return Result.error(500, "渠道测试失败: " + testResult.getErrorMsg());
+        }
     }
 
     /**
