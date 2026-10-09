@@ -45,32 +45,30 @@
             </el-button>
           </el-badge>
 
-          <div class="role-switcher">
-            <span class="role-label">当前角色：</span>
-            <el-select v-model="currentRole" size="small" style="width: 230px" @change="handleRoleSwitch">
-              <el-option label="党总支组织员 (集团组织科)" value="committee_organizer" />
-              <el-option label="支部书记 (红数信息技术支部)" value="branch_secretary" />
-              <el-option label="支部书记 (云南幂次科技支部)" value="branch_secretary_mc" />
-              <el-option label="支部书记 (红河链达科技支部)" value="branch_secretary_ld" />
-              <el-option label="纪检监察主管 (廉洁把关)" value="discipline_inspector" />
-              <el-option label="系统超级管理员 (权限与渠道)" value="sys_admin" />
-              <el-option label="发展成员本人 (工号HH-HS-012)" value="member_self" />
-            </el-select>
+          <!-- 当前认证党务身份（只读标签，严格禁止任意下拉切换越权） -->
+          <div class="current-auth-role-tag">
+            <span class="role-static-label">党务权责身份：</span>
+            <el-tag size="small" :type="currentRoleTagType" effect="dark" class="role-badge-static">
+              <el-icon><Avatar /></el-icon> {{ currentRoleDisplayName }}
+            </el-tag>
           </div>
 
           <!-- 用户名与组织标签 -->
           <div class="user-profile-badge">
             <el-avatar :size="26" class="user-avatar-small">{{ currentUser?.realName?.slice(0, 1) || '党' }}</el-avatar>
-            <span class="user-realname">{{ currentUser?.realName || '党员干部' }}</span>
+            <div class="user-name-dept-box">
+              <span class="user-realname">{{ currentUser?.realName || '党员干部' }}</span>
+              <span class="user-workno">({{ currentUser?.workNo || 'HH-000' }})</span>
+            </div>
           </div>
 
-          <el-tag type="danger" effect="dark" round class="org-tag">
+          <el-tag type="danger" effect="plain" round class="org-tag">
             <el-icon><OfficeBuilding /></el-icon> {{ currentUserOrgShort }}
           </el-tag>
 
           <!-- 退出登录按钮 -->
           <el-button link type="info" icon="SwitchButton" class="logout-btn" @click="handleLogout">
-            退出
+            退出登录
           </el-button>
         </div>
       </header>
@@ -103,8 +101,8 @@
       <!-- 主体内容区域 -->
       <main class="dj-main-container">
         <el-tabs v-model="activeTab" class="dj-nav-tabs">
-          <!-- 标签页 1: 发展党员全景工作台 -->
-          <el-tab-pane name="workbench">
+          <!-- 标签页 1: 发展党员全景工作台 (普通党员/支部书记/总支/纪检均可查阅，按权限控制操作) -->
+          <el-tab-pane v-if="hasPermission('workbench:view')" name="workbench">
             <template #label>
               <span class="tab-label"><el-icon><Operation /></el-icon> 发展党员全景工作台</span>
             </template>
@@ -169,8 +167,8 @@
                 </div>
 
                 <div class="toolbar-right">
-                  <el-button type="primary" icon="Plus" @click="openAddDialog">新建入党申请人建档</el-button>
-                  <el-button icon="Download" @click="exportTableData">导出发展党员合规台账</el-button>
+                  <el-button v-if="hasPermission('workbench:create_applicant')" type="primary" icon="Plus" @click="openAddDialog">新建入党申请人建档</el-button>
+                  <el-button v-if="hasPermission('workbench:export')" icon="Download" @click="exportTableData">导出发展党员合规台账</el-button>
                 </div>
               </div>
 
@@ -244,7 +242,12 @@
                     <el-button type="primary" size="small" icon="Document" @click="openMemberDrawer(row)">
                       全景档案
                     </el-button>
-                    <el-button size="small" icon="Right" @click="quickProgressStep(row)">
+                    <el-button 
+                      v-if="hasPermission('workbench:advance')" 
+                      size="small" 
+                      icon="Right" 
+                      @click="quickProgressStep(row)"
+                    >
                       办理流转
                     </el-button>
                   </template>
@@ -253,8 +256,8 @@
             </div>
           </el-tab-pane>
 
-          <!-- 标签页 2: 所有党员花名册 (全新模块) -->
-          <el-tab-pane name="roster">
+          <!-- 标签页 2: 所有党员花名册 (组织员/支部书记查阅维护) -->
+          <el-tab-pane v-if="hasPermission('roster:view')" name="roster">
             <template #label>
               <span class="tab-label"><el-icon><User /></el-icon> 全集团所有党员花名册</span>
             </template>
@@ -318,9 +321,9 @@
                   </el-button>
                 </div>
                 <div class="toolbar-right">
-                  <el-button type="primary" icon="Plus" @click="openAddMemberDialog">新增党员</el-button>
-                  <el-button type="warning" icon="Upload" @click="openImportRosterDialog">批量导入花名册</el-button>
-                  <el-button icon="Download" @click="exportRosterExcel">导出花名册</el-button>
+                  <el-button v-if="hasPermission('roster:create')" type="primary" icon="Plus" @click="openAddMemberDialog">新增党员</el-button>
+                  <el-button v-if="hasPermission('roster:import')" type="warning" icon="Upload" @click="openImportRosterDialog">批量导入花名册</el-button>
+                  <el-button v-if="hasPermission('roster:export')" icon="Download" @click="exportRosterExcel">导出花名册</el-button>
                 </div>
               </div>
 
@@ -445,7 +448,13 @@
 
                 <el-table-column label="操作" width="110" fixed="right">
                   <template #default="{ row }">
-                    <el-button type="primary" size="small" icon="Edit" @click="openEditMemberDialog(row)">
+                    <el-button 
+                      v-if="hasPermission('roster:edit')" 
+                      type="primary" 
+                      size="small" 
+                      icon="Edit" 
+                      @click="openEditMemberDialog(row)"
+                    >
                       修改档案
                     </el-button>
                   </template>
@@ -454,8 +463,8 @@
             </div>
           </el-tab-pane>
 
-          <!-- 标签页 3: 支部“三会一课”与组织生活台账 (全新闭环业务模块) -->
-          <el-tab-pane name="meetings">
+          <!-- 标签页 3: 支部“三会一课”与组织生活台账 (组织员/支部书记) -->
+          <el-tab-pane v-if="hasPermission('meeting:view')" name="meetings">
             <template #label>
               <span class="tab-label"><el-icon><Calendar /></el-icon> 支部“三会一课”与组织生活台账</span>
             </template>
@@ -557,9 +566,9 @@
                 </div>
 
                 <div class="toolbar-right">
-                  <el-button type="primary" icon="Plus" @click="openAddMeetingDialog">记录组织生活会议</el-button>
-                  <el-button type="warning" plain icon="CollectionTag" @click="openManageTagsDialog">管理议题标签</el-button>
-                  <el-button icon="Download" @click="exportMeetingsExcel">导出组织生活台账</el-button>
+                  <el-button v-if="hasPermission('meeting:create')" type="primary" icon="Plus" @click="openAddMeetingDialog">记录组织生活会议</el-button>
+                  <el-button v-if="hasPermission('meeting:tags_manage')" type="warning" plain icon="CollectionTag" @click="openManageTagsDialog">管理议题标签</el-button>
+                  <el-button v-if="hasPermission('meeting:export')" icon="Download" @click="exportMeetingsExcel">导出组织生活台账</el-button>
                 </div>
               </div>
 
@@ -640,7 +649,13 @@
                 <el-table-column label="操作与附件归档" width="280" fixed="right">
                   <template #default="{ row }">
                     <div style="display: flex; gap: 6px; align-items: center">
-                      <el-button type="primary" size="small" icon="Edit" @click="openEditMeetingDialog(row)">
+                      <el-button 
+                        v-if="hasPermission('meeting:edit')" 
+                        type="primary" 
+                        size="small" 
+                        icon="Edit" 
+                        @click="openEditMeetingDialog(row)"
+                      >
                         修改
                       </el-button>
                       <el-button size="small" icon="Paperclip" @click="openMeetingAttachmentsDialog(row)">
@@ -656,8 +671,8 @@
             </div>
           </el-tab-pane>
 
-          <!-- 标签页 4: 组织与个人奖惩/荣誉台账 (全新专题) -->
-          <el-tab-pane name="honors">
+          <!-- 标签页 4: 组织与个人奖惩/荣誉台账 (纪检/组织员/书记) -->
+          <el-tab-pane v-if="hasPermission('honor:view')" name="honors">
             <template #label>
               <span class="tab-label"><el-icon><Trophy /></el-icon> 组织与个人奖惩/荣誉台账</span>
             </template>
@@ -731,8 +746,8 @@
                 </div>
 
                 <div class="toolbar-right">
-                  <el-button type="primary" icon="Plus" @click="openAddHonorDialog">登记奖惩/荣誉</el-button>
-                  <el-button icon="Download" @click="exportHonorsExcel">导出荣誉台账</el-button>
+                  <el-button v-if="hasPermission('honor:create')" type="primary" icon="Plus" @click="openAddHonorDialog">登记奖惩/荣誉</el-button>
+                  <el-button v-if="hasPermission('honor:export')" icon="Download" @click="exportHonorsExcel">导出荣誉台账</el-button>
                 </div>
               </div>
 
@@ -807,10 +822,23 @@
 
                 <el-table-column label="操作" width="160" fixed="right">
                   <template #default="{ row }">
-                    <el-button type="primary" size="small" icon="Edit" @click="openEditHonorDialog(row)">
+                    <el-button 
+                      v-if="hasPermission('honor:edit')" 
+                      type="primary" 
+                      size="small" 
+                      icon="Edit" 
+                      @click="openEditHonorDialog(row)"
+                    >
                       修改
                     </el-button>
-                    <el-button type="danger" size="small" icon="Delete" link @click="deleteHonorItem(row)">
+                    <el-button 
+                      v-if="hasPermission('honor:delete')" 
+                      type="danger" 
+                      size="small" 
+                      icon="Delete" 
+                      link 
+                      @click="deleteHonorItem(row)"
+                    >
                       删除
                     </el-button>
                   </template>
@@ -819,8 +847,8 @@
             </div>
           </el-tab-pane>
 
-          <!-- 标签页 5: 25步全景规范与文书套打指南（支持默认与管理员导入双轨制） -->
-          <el-tab-pane name="templates">
+          <!-- 标签页 5: 25步全景规范与文书套打指南 (总支组织员/支部书记) -->
+          <el-tab-pane v-if="hasPermission('template:view')" name="templates">
             <template #label>
               <span class="tab-label"><el-icon><DocumentCopy /></el-icon> 25步文书模板管理（默认+导入）</span>
             </template>
@@ -890,11 +918,18 @@
                     <el-button size="small" link type="info" icon="Document" @click="downloadDefaultTemplate(row)">
                       下载官方默认
                     </el-button>
-                    <el-button size="small" link type="warning" icon="Upload" @click="openUploadDialog(row)">
+                    <el-button 
+                      v-if="hasPermission('template:upload')" 
+                      size="small" 
+                      link 
+                      type="warning" 
+                      icon="Upload" 
+                      @click="openUploadDialog(row)"
+                    >
                       管理员导入
                     </el-button>
                     <el-button 
-                      v-if="row.isCustomized" 
+                      v-if="row.isCustomized && hasPermission('template:reset')" 
                       size="small" 
                       link 
                       type="danger" 
@@ -909,8 +944,8 @@
             </div>
           </el-tab-pane>
 
-          <!-- 标签页 4: 国企年度指标与结构驾驶舱 -->
-          <el-tab-pane name="cockpit">
+          <!-- 标签页 6: 国企年度指标与结构驾驶舱 (全员可查阅) -->
+          <el-tab-pane v-if="hasPermission('cockpit:view')" name="cockpit">
             <template #label>
               <span class="tab-label"><el-icon><DataAnalysis /></el-icon> 年度发展指标与结构驾驶舱</span>
             </template>
@@ -1031,8 +1066,8 @@
             </div>
           </el-tab-pane>
 
-          <!-- 标签页 7: 党建通知中心与渠道配置 -->
-          <el-tab-pane name="notices">
+          <!-- 标签页 7: 党建通知中心与渠道配置 (全员查阅通知，仅管理员/组织员可配置渠道与扫描) -->
+          <el-tab-pane v-if="hasPermission('notice:view')" name="notices">
             <template #label>
               <span class="tab-label">
                 <el-icon><BellFilled /></el-icon> 党建通知中心与多渠道
@@ -1049,10 +1084,10 @@
                     <span class="sub-tip">关键合规阻断、时限红线、三会一课通知多维秒级直达</span>
                   </div>
                   <div class="actions">
-                    <el-button type="danger" plain icon="Refresh" @click="triggerSystemComplianceScan">
+                    <el-button v-if="hasPermission('notice:manage')" type="danger" plain icon="Refresh" @click="triggerSystemComplianceScan">
                       执行全集团合规扫描并推送
                     </el-button>
-                    <el-button type="primary" icon="Promotion" @click="openSendNoticeDialog">
+                    <el-button v-if="hasPermission('notice:manage')" type="primary" icon="Promotion" @click="openSendNoticeDialog">
                       发送新党务通知
                     </el-button>
                   </div>
@@ -1076,13 +1111,14 @@
                         :inactive-value="0" 
                         active-text="启用" 
                         inactive-text="停用"
+                        :disabled="!hasPermission('notice:manage')"
                         inline-prompt
                         @change="handleChannelToggle(ch)" 
                       />
                     </div>
                     <div class="channel-desc">{{ ch.remark }}</div>
                     <div class="channel-actions">
-                      <el-button link type="primary" size="small" icon="Setting" @click="openChannelConfig(ch)">
+                      <el-button v-if="hasPermission('notice:manage')" link type="primary" size="small" icon="Setting" @click="openChannelConfig(ch)">
                         参数配置
                       </el-button>
                       <el-button link type="success" size="small" icon="Promotion" @click="testChannelPing(ch)">
@@ -1169,8 +1205,8 @@
             </div>
           </el-tab-pane>
 
-          <!-- 标签页 8: 党务用户与权限角色管理 (RBAC) -->
-          <el-tab-pane name="users">
+          <!-- 标签页 8: 党务用户与权限角色管理 (仅限系统超级管理员 sys_admin 专享) -->
+          <el-tab-pane v-if="hasRole('sys_admin')" name="users">
             <template #label>
               <span class="tab-label"><el-icon><User /></el-icon> 党务用户与权限体系</span>
             </template>
@@ -1443,12 +1479,16 @@
             <div class="step-footer-actions">
               <el-button @click="drawerVisible = false">关闭窗口</el-button>
               <el-button 
+                v-if="hasPermission('workbench:advance')"
                 type="primary" 
                 icon="Check"
                 @click="handleAdvanceStep"
               >
                 确认审核并推进至下一步
               </el-button>
+              <el-tag v-else type="info" effect="plain" style="margin-left: 10px">
+                当前角色处于只读查阅模式，无权审批流转
+              </el-tag>
             </div>
           </div>
         </div>
@@ -2366,6 +2406,95 @@ const currentUser = ref(MOCK_SYS_USERS[1]) // 默认杨海 (党总支组织员)
 const currentRole = ref('committee_organizer')
 const activeTab = ref('workbench')
 
+// ==========================================
+// RBAC 严格权限控制体系核心函数
+// ==========================================
+const currentRoleDisplayName = computed(() => {
+  const map = {
+    committee_organizer: '党总支组织员 (集团组织科)',
+    branch_secretary: '支部书记 (红数信息支部)',
+    branch_secretary_mc: '支部书记 (云南幂次科技支部)',
+    branch_secretary_ld: '支部书记 (红河链达科技支部)',
+    discipline_inspector: '党总支纪检委员 (纪检风控部)',
+    sys_admin: '系统超级管理员',
+    member_self: '在册党员 / 发展成员本人'
+  }
+  return map[currentRole.value] || '党务在册人员'
+})
+
+const currentRoleTagType = computed(() => {
+  const map = {
+    committee_organizer: 'danger',
+    branch_secretary: 'warning',
+    branch_secretary_mc: 'warning',
+    branch_secretary_ld: 'warning',
+    discipline_inspector: 'primary',
+    sys_admin: 'info',
+    member_self: ''
+  }
+  return map[currentRole.value] || 'info'
+})
+
+/**
+ * 判断当前登录人是否拥有某项细粒度权限标识
+ */
+function hasPermission(perm) {
+  if (!perm) return true
+  // 超级管理员拥有全量系统与安全维护权限
+  if (currentRole.value === 'sys_admin') {
+    return ['user:manage', 'role:manage', 'notice:manage', 'template:upload', 'template:reset'].includes(perm)
+  }
+
+  // 党总支组织员拥有党务全局最高推进、审核与规程管理权限
+  if (currentRole.value === 'committee_organizer') {
+    return [
+      'workbench:view', 'workbench:create_applicant', 'workbench:advance', 'workbench:audit', 
+      'workbench:transfer', 'workbench:export', 'workbench:block_override',
+      'roster:view', 'roster:create', 'roster:edit', 'roster:import', 'roster:export',
+      'meeting:view', 'meeting:create', 'meeting:edit', 'meeting:tags_manage', 'meeting:export',
+      'honor:view', 'honor:create', 'honor:edit', 'honor:delete', 'honor:export',
+      'template:view', 'template:upload', 'template:reset', 'cockpit:view', 'notice:view', 'notice:manage'
+    ].includes(perm)
+  }
+
+  // 支部书记拥有本支部日常发展规程、三会一课及名册维护权限
+  if (currentRole.value.startsWith('branch_secretary')) {
+    return [
+      'workbench:view', 'workbench:create_applicant', 'workbench:advance', 'workbench:export',
+      'roster:view', 'roster:create', 'roster:edit', 'roster:export',
+      'meeting:view', 'meeting:create', 'meeting:edit', 'meeting:export',
+      'honor:view', 'template:view', 'cockpit:view', 'notice:view'
+    ].includes(perm)
+  }
+
+  // 纪检监察委员专责廉洁审查（一票否决权）及违纪诫勉台账
+  if (currentRole.value === 'discipline_inspector') {
+    return [
+      'workbench:view', 'workbench:discipline_audit',
+      'honor:view', 'honor:create', 'honor:edit', 'honor:delete', 'honor:export',
+      'cockpit:view', 'notice:view'
+    ].includes(perm)
+  }
+
+  // 普通在册党员/发展成员本人
+  if (currentRole.value === 'member_self') {
+    return ['workbench:view', 'notice:view', 'cockpit:view'].includes(perm)
+  }
+
+  return false
+}
+
+/**
+ * 校验当前登录人是否拥有某个角色
+ */
+function hasRole(roles) {
+  if (!roles || !roles.length) return true
+  if (Array.isArray(roles)) {
+    return roles.includes(currentRole.value)
+  }
+  return currentRole.value === roles
+}
+
 const currentUserOrgShort = computed(() => {
   if (!currentUser.value?.orgName) return '集团党总支'
   if (currentUser.value.orgName.includes('红数')) return '红数信息支部'
@@ -2378,6 +2507,15 @@ function handleLoginSuccess(payload) {
   currentUser.value = payload.user
   currentRole.value = payload.role
   isLoggedIn.value = true
+
+  // 登录后根据角色智能跳转其首要权限工作台
+  if (currentRole.value === 'sys_admin') {
+    activeTab.value = 'users'
+  } else if (currentRole.value === 'discipline_inspector') {
+    activeTab.value = 'honors'
+  } else {
+    activeTab.value = 'workbench'
+  }
 }
 
 function handleLogout() {
@@ -2490,6 +2628,13 @@ const searchKeyword = ref('')
 
 const filteredMembers = computed(() => {
   return MOCK_MEMBERS.filter(m => {
+    // 数据范围限制：若为某子公司党支部书记，仅能查阅本支部的发展成员
+    if (currentRole.value === 'branch_secretary' && !m.branchName.includes('红数')) return false
+    if (currentRole.value === 'branch_secretary_mc' && !m.branchName.includes('幂次')) return false
+    if (currentRole.value === 'branch_secretary_ld' && !m.branchName.includes('链达')) return false
+    // 若为党员本人，仅能查看自己的成长全景
+    if (currentRole.value === 'member_self' && m.workNo !== (currentUser.value?.workNo || 'HH-HS-012')) return false
+
     if (selectedFilterStage.value && m.currentStageId !== selectedFilterStage.value) return false
     if (filterBranch.value && m.branchName !== filterBranch.value) return false
     if (filterSpecialType.value === 'frontline' && !m.isFrontline) return false
@@ -2532,6 +2677,12 @@ const rosterStatusFilter = ref('')
 
 const filteredRosterList = computed(() => {
   return rosterList.value.filter(m => {
+    // 数据范围限制：子公司支部书记仅查看本支部在册党员
+    if (currentRole.value === 'branch_secretary' && !m.branchName.includes('红数')) return false
+    if (currentRole.value === 'branch_secretary_mc' && !m.branchName.includes('幂次')) return false
+    if (currentRole.value === 'branch_secretary_ld' && !m.branchName.includes('链达')) return false
+    if (currentRole.value === 'member_self' && m.workNo !== (currentUser.value?.workNo || 'HH-HS-012')) return false
+
     if (rosterBranchFilter.value && m.branchName !== rosterBranchFilter.value) return false
     if (rosterStatusFilter.value && m.partyStatus !== rosterStatusFilter.value) return false
     if (rosterSearchKeyword.value) {
@@ -3893,6 +4044,33 @@ function quickProgressStep(member) {
 }
 
 function handleAdvanceStep() {
+  // 1. 角色推进权限拦截：只有总支组织员和支部书记有权推进业务流转
+  if (!hasPermission('workbench:advance') && !hasPermission('workbench:audit')) {
+    ElMessageBox.alert('您当前所属角色无权直接审批或推进党员发展规程！', '权限不足', { type: 'warning' })
+    return
+  }
+
+  // 2. 党总支专属审批步骤越权防护（第20步接收审批、第25步转正审批仅限总支组织员）
+  if ((selectedStepInDrawer.value === 20 || selectedStepInDrawer.value === 25) && currentRole.value !== 'committee_organizer') {
+    ElMessageBox.alert(
+      `第 ${selectedStepInDrawer.value} 步依据《细则》须由【中共红河数据产业集团有限公司总支部委员会】集体审批，基层党支部无权直接批复，请等待党总支审批下达！`,
+      '审批权限拦截',
+      { type: 'warning' }
+    )
+    return
+  }
+
+  // 3. 纪检会签一票否决权（第13步）
+  if (selectedStepInDrawer.value === 13 && currentRole.value !== 'discipline_inspector' && currentRole.value !== 'committee_organizer') {
+    ElMessageBox.alert(
+      '第 13 步《政治审查与廉洁从业把关》须由集团纪委/总支纪检委员进行廉洁从业审查并签署意见（一票否决权），党支部无权自行代审通过！',
+      '纪检把关权限拦截',
+      { type: 'warning' }
+    )
+    return
+  }
+
+  // 4. 积极分子未满 365 天系统合规硬阻断
   if (currentMember.value.id === 101 && currentMember.value.currentStepId === 7) {
     ElMessageBox.alert(
       '【系统硬阻断】张强同志作为入党积极分子考察期仅 290 天（未满法定 365 天）。依据《中国共产党发展党员工作细则》第十三条，严禁在考察期不足一年时提前确定为发展对象！如遇巡视巡察将判定为违规入党。',
@@ -3901,6 +4079,7 @@ function handleAdvanceStep() {
     )
     return
   }
+
   ElMessage.success({ message: `第 ${selectedStepInDrawer.value} 步审核归档通过！已成功推进至下一业务节点。`, duration: 3000 })
 }
 
@@ -5285,12 +5464,38 @@ function exportTableData() {
   color: #303133;
 }
 
-.logout-btn {
-  font-size: 13px;
-  color: #909399;
+.current-auth-role-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
 }
 
-.logout-btn:hover {
-  color: #c21c1d;
+.role-static-label {
+  font-size: 11.5px;
+  color: #ffe8e8;
+  white-space: nowrap;
+}
+
+.role-badge-static {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.user-name-dept-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.user-workno {
+  font-size: 11px;
+  color: #8c939d;
 }
 </style>
