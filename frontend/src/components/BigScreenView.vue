@@ -21,7 +21,7 @@
         <div class="header-center-title">
           <div class="title-emblem-row">
             <div class="cpc-flag-badge">
-              <el-icon :size="24"><Flag /></el-icon>
+              <PartyEmblem style="width: 32px; height: 32px;" />
             </div>
             <h1>党建工作与发展党员综合调度大屏</h1>
           </div>
@@ -638,6 +638,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import PartyEmblem from './PartyEmblem.vue'
 import { ALL_MEMBERS_ROSTER, GENERAL_BRANCH_COMMITTEE } from '../data/mockData.js'
 
 defineEmits(['close'])

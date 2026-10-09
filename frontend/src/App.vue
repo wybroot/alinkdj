@@ -13,7 +13,7 @@
       <header class="dj-header">
         <div class="header-left">
           <div class="logo-badge">
-            <el-icon :size="24"><Flag /></el-icon>
+            <PartyEmblem style="width: 28px; height: 28px;" />
           </div>
           <div class="title-group">
             <h1>红河数据产业集团 · 智慧党建云平台</h1>
@@ -2535,6 +2535,7 @@ import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import BigScreenView from './components/BigScreenView.vue'
 import LoginView from './components/LoginView.vue'
+import PartyEmblem from './components/PartyEmblem.vue'
 import { 
   SOE_ORGS, 
   STAGES_AND_STEPS, 

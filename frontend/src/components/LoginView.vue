@@ -11,7 +11,7 @@
       <div class="login-left-brand">
         <div class="brand-top">
           <div class="party-emblem">
-            <el-icon :size="46"><Flag /></el-icon>
+            <PartyEmblem style="width: 44px; height: 44px;" />
           </div>
           <div class="org-titles">
             <div class="org-badge">中共红河数据产业集团有限公司总支部委员会</div>
@@ -223,8 +223,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import PartyEmblem from './PartyEmblem.vue'
 import { MOCK_SYS_USERS } from '../data/mockData.js'
 
 const emit = defineEmits(['login-success'])
