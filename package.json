@@ -1,0 +1,12 @@
+{
+  "name": "alinkdj",
+  "version": "1.0.0",
+  "description": "国有企业智慧党建 · 发展党员全生命周期管理系统",
+  "scripts": {
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend"
+  },
+  "keywords": ["党建", "发展党员", "国有企业", "Spring Boot", "Vue3"],
+  "author": "",
+  "license": "ISC"
+}

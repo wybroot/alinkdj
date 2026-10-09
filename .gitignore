@@ -1,0 +1,57 @@
+# ==============================================================================
+# Git 忽略配置 - 红河数据产业集团智慧党建项目
+# ==============================================================================
+
+# 操作系统临时文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 开发工具与 IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.sublime-project
+*.sublime-workspace
+
+# Maven 构建产物与 Java 临时文件
+**/target/
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+
+# Node / 前端构建产物与依赖包
+**/node_modules/
+node_modules/
+**/dist/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# 本地上传的测试业务附件与数据文件 (忽略根目录持久化数据，保留源码目录)
+/uploads/
+/data/
+*.dump
+!**/src/data/
+
+# 日志文件
+*.log
+logs/
+**/logs/
+
+# 单元测试与覆盖率
+.scannerwork/
+.coverage
+.nyc_output/
