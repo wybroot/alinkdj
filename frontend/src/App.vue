@@ -2134,9 +2134,11 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item :label="newHonorForm.category === 2 ? '获奖党支部*' : '党员姓名*'" required>
+              <!-- 组织荣誉：若为支部管理员，直接强锁本支部且禁用修改，严禁给其他支部申报组织表彰/处分 -->
               <el-select 
                 v-if="newHonorForm.category === 2" 
                 v-model="newHonorForm.targetName" 
+                :disabled="isBranchAdmin"
                 placeholder="选择党支部" 
                 style="width: 100%"
                 @change="handleOrgTargetChange"
@@ -2146,6 +2148,7 @@
                 <el-option label="链达科技党支部" value="中共红河链达科技有限公司支部委员会" />
                 <el-option label="集团党总支" value="中共红河数据产业集团有限公司总支部委员会" />
               </el-select>
+              <!-- 个人荣誉：若为支部管理员，下拉名单仅呈现本支部党员，严禁给其他支部的党员录入荣誉/处分 -->
               <el-select 
                 v-else 
                 v-model="newHonorForm.targetName" 
@@ -2155,7 +2158,7 @@
                 @change="handleMemberTargetChange"
               >
                 <el-option 
-                  v-for="m in rosterList" 
+                  v-for="m in branchLockedMemberRoster" 
                   :key="m.id" 
                   :label="`${m.name} (${m.workNo} - ${m.branchName.slice(0, 10)}...)`" 
                   :value="m.name" 
@@ -3499,8 +3502,20 @@ const honorRecordTypeFilter = ref(null)
 const honorBranchFilter = ref([])
 const honorLevelFilter = ref('')
 
+const branchLockedMemberRoster = computed(() => {
+  if (isBranchAdmin.value) {
+    return rosterList.value.filter(m => m.branchName === currentBranchNameLocked.value)
+  }
+  return rosterList.value
+})
+
 const filteredHonorsList = computed(() => {
   return honorsList.value.filter(item => {
+    // 四级数据范围限制：支部管理员仅查看本支部荣誉与奖惩
+    if (currentRole.value === 'branch_admin_hs' && !item.orgName.includes('红数')) return false
+    if (currentRole.value === 'branch_admin_mc' && !item.orgName.includes('幂次')) return false
+    if (currentRole.value === 'branch_admin_ld' && !item.orgName.includes('链达')) return false
+
     if (honorCategoryFilter.value !== null && item.category !== honorCategoryFilter.value) return false
     if (honorRecordTypeFilter.value !== null && item.recordType !== honorRecordTypeFilter.value) return false
     if (honorBranchFilter.value && honorBranchFilter.value.length > 0) {
@@ -3600,11 +3615,18 @@ function openEditHonorDialog(row) {
 
 function handleHonorCategoryChange(val) {
   if (val === 2) {
-    newHonorForm.value.targetName = '中共云南幂次科技有限公司支部委员会'
-    newHonorForm.value.orgName = '中共云南幂次科技有限公司支部委员会'
+    const org = isBranchAdmin.value ? currentBranchNameLocked.value : '中共云南幂次科技有限公司支部委员会'
+    newHonorForm.value.targetName = org
+    newHonorForm.value.orgName = org
   } else {
-    newHonorForm.value.targetName = '朱文华'
-    newHonorForm.value.orgName = '中共红河数据产业集团有限公司总支部委员会'
+    if (isBranchAdmin.value) {
+      const myMembers = branchLockedMemberRoster.value
+      newHonorForm.value.targetName = myMembers.length ? myMembers[0].name : currentUser.value?.realName
+      newHonorForm.value.orgName = currentBranchNameLocked.value
+    } else {
+      newHonorForm.value.targetName = '朱文华'
+      newHonorForm.value.orgName = '中共红河数据产业集团有限公司总支部委员会'
+    }
   }
 }
 
@@ -3626,6 +3648,12 @@ function submitSaveHonor() {
   }
   if (!newHonorForm.value.targetName) {
     ElMessage.warning('请选择或输入获奖/受处分主体！')
+    return
+  }
+
+  // 支部管理员越权校验：严禁给其他支部申报组织荣誉或处分
+  if (isBranchAdmin.value && newHonorForm.value.orgName !== currentBranchNameLocked.value) {
+    ElMessageBox.alert('您无权为其他党支部或外支部党员登记表彰处分！', '越权拦截', { type: 'error' })
     return
   }
 
