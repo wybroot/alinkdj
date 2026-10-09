@@ -2948,8 +2948,30 @@ function submitCreateApplicant() {
     isDualCultivate: applicantRecord.isDualCultivate
   })
 
+  // 3. 生产级账号联动：自动为新申请人开通系统登录账号 (工号为账号，弱密123456，标记强制改密)
+  const existingUserIdx = sysUsers.value.findIndex(u => u.workNo === applicantRecord.workNo)
+  if (existingUserIdx === -1) {
+    sysUsers.value.unshift({
+      id: Date.now() + 10,
+      username: applicantRecord.workNo.toLowerCase(),
+      password: '123456',
+      mustChangePwd: true, // 首次登录强制改密
+      realName: applicantRecord.name,
+      workNo: applicantRecord.workNo,
+      phone: '139' + Math.floor(Math.random() * 89999999 + 10000000),
+      email: `${applicantRecord.workNo.toLowerCase()}@honghe-data.com`,
+      orgId: applicantRecord.branchId || 2,
+      orgName: applicantRecord.branchName,
+      roleCode: 'PARTY_MEMBER',
+      roleName: '普通在册党员 / 发展成员本人',
+      status: 1,
+      lastLoginTime: '未登录',
+      createdAt: new Date().toISOString().slice(0, 10)
+    })
+  }
+
   addApplicantDialogVisible.value = false
-  ElMessage.success(`【${applicantRecord.name}】同志入党申请人建档立卷成功！已归入第 1 阶段台账与全集团花名册。`)
+  ElMessage.success(`【${applicantRecord.name}】同志建档成功！已自动为其开通系统账号（工号：${applicantRecord.workNo}，初始密码 123456，首次登录须改密）。`)
 }
 
 function filterByStage(stageId) {
@@ -3176,7 +3198,7 @@ function submitAddMember() {
       return
     }
 
-    rosterList.value.unshift({
+    const newMemObj = {
       id: Date.now(),
       name: newMemberForm.value.name.trim(),
       workNo: newMemberForm.value.workNo.trim(),
@@ -3202,10 +3224,34 @@ function submitAddMember() {
       isFrontline: newMemberForm.value.isFrontline,
       isTechnicalTalent: newMemberForm.value.isTechnicalTalent,
       isDualCultivate: newMemberForm.value.isDualCultivate
-    })
+    }
+
+    rosterList.value.unshift(newMemObj)
+
+    // 自动为录入的党员开通系统个人账号 (工号登录，弱密123456，首次登录强制改密)
+    const existsUser = sysUsers.value.some(u => u.workNo === newMemObj.workNo)
+    if (!existsUser) {
+      sysUsers.value.unshift({
+        id: Date.now() + 20,
+        username: newMemObj.workNo.toLowerCase(),
+        password: '123456',
+        mustChangePwd: true,
+        realName: newMemObj.name,
+        workNo: newMemObj.workNo,
+        phone: '139' + Math.floor(Math.random() * 89999999 + 10000000),
+        email: `${newMemObj.workNo.toLowerCase()}@honghe-data.com`,
+        orgId: 2,
+        orgName: newMemObj.branchName,
+        roleCode: 'PARTY_MEMBER',
+        roleName: '普通在册党员 / 发展成员本人',
+        status: 1,
+        lastLoginTime: '未登录',
+        createdAt: new Date().toISOString().slice(0, 10)
+      })
+    }
 
     addMemberDialogVisible.value = false
-    ElMessage.success(`成功录入新增党员【${newMemberForm.value.name}】！已实时纳入花名册档案。`)
+    ElMessage.success(`党员【${newMemberForm.value.name}】已成功录入花名册！已自动为其开通系统账号（工号：${newMemberForm.value.workNo}，初始密码 123456，首次登录须改密）。`)
   }
 }
 
@@ -3316,9 +3362,34 @@ function confirmBatchImportRoster() {
   if (parsedRosterPreviewList.value.length === 0) return
   const count = parsedRosterPreviewList.value.length
   rosterList.value.unshift(...parsedRosterPreviewList.value)
+
+  // 批量导入自动开户
+  parsedRosterPreviewList.value.forEach((m, idx) => {
+    const exists = sysUsers.value.some(u => u.workNo === m.workNo)
+    if (!exists) {
+      sysUsers.value.push({
+        id: Date.now() + 100 + idx,
+        username: m.workNo.toLowerCase(),
+        password: '123456',
+        mustChangePwd: true, // 初始弱密，强制首次改密
+        realName: m.name,
+        workNo: m.workNo,
+        phone: '139' + Math.floor(Math.random() * 89999999 + 10000000),
+        email: `${m.workNo.toLowerCase()}@honghe-data.com`,
+        orgId: 2,
+        orgName: m.branchName,
+        roleCode: 'PARTY_MEMBER',
+        roleName: '普通在册党员 / 发展成员本人',
+        status: 1,
+        lastLoginTime: '未登录',
+        createdAt: new Date().toISOString().slice(0, 10)
+      })
+    }
+  })
+
   parsedRosterPreviewList.value = []
   importRosterDialogVisible.value = false
-  ElMessage.success(`批量导入成功！已将 ${count} 位在册党员批量录入花名册。`)
+  ElMessage.success(`批量导入成功！已将 ${count} 位党员录入花名册并自动开通个人登录账号（工号为账号，初始弱密 123456，首次登录强制改密）。`)
 }
 
 // ==========================================

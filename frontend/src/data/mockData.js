@@ -1364,6 +1364,8 @@ export const MOCK_SYS_USERS = [
   {
     id: 1,
     username: 'admin',
+    password: 'Password@2026',
+    mustChangePwd: false,
     realName: '系统管理员',
     workNo: 'SYS-ADMIN-01',
     phone: '13888880001',
@@ -1381,6 +1383,8 @@ export const MOCK_SYS_USERS = [
   {
     id: 2,
     username: 'yanghai',
+    password: 'Password@2026',
+    mustChangePwd: false,
     realName: '杨海',
     workNo: 'HH-JT-005',
     phone: '13987301005',
@@ -1398,6 +1402,8 @@ export const MOCK_SYS_USERS = [
   {
     id: 3,
     username: 'liweimin',
+    password: 'Password@2026',
+    mustChangePwd: false,
     realName: '李卫民',
     workNo: 'HH-HS-001',
     phone: '13987302001',
@@ -1415,6 +1421,8 @@ export const MOCK_SYS_USERS = [
   {
     id: 4,
     username: 'liujianhua',
+    password: 'Password@2026',
+    mustChangePwd: false,
     realName: '刘建华',
     workNo: 'HH-MC-001',
     phone: '13987303001',
@@ -1432,6 +1440,8 @@ export const MOCK_SYS_USERS = [
   {
     id: 5,
     username: 'chenming',
+    password: 'Password@2026',
+    mustChangePwd: false,
     realName: '陈明',
     workNo: 'HH-LD-001',
     phone: '13987304001',
@@ -1449,6 +1459,8 @@ export const MOCK_SYS_USERS = [
   {
     id: 6,
     username: 'zhangqiang',
+    password: '123456',
+    mustChangePwd: true, // 初始弱密，首次登录必须强制改密
     realName: '张强',
     workNo: 'HH-HS-012',
     phone: '13987302012',
@@ -1466,6 +1478,8 @@ export const MOCK_SYS_USERS = [
   {
     id: 7,
     username: 'linyuhan',
+    password: '123456',
+    mustChangePwd: true, // 初始弱密，首次登录必须强制改密
     realName: '林雨涵',
     workNo: 'HH-MC-035',
     phone: '13987303035',

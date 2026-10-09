@@ -142,6 +142,62 @@
       </div>
     </div>
 
+    <!-- 首次登录强制修改密码安全弹窗 (不可关闭、必须达到高强度要求) -->
+    <el-dialog
+      v-model="forceChangePwdVisible"
+      title="【首次登录安全合规要求】强制修改初始密码"
+      width="540px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="false"
+      class="force-pwd-dialog"
+    >
+      <el-alert
+        title="密码合规要求：为了防范弱密码安全隐患，首次登录必须修改密码。新密码长度至少8位，且必须同时包含【大写/小写字母】、【数字】及【特殊字符】组合！"
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 18px;"
+      />
+      <el-form label-width="110px">
+        <el-form-item label="当前账号">
+          <el-input :value="`${pendingUser?.realName} (${pendingUser?.workNo})`" disabled />
+        </el-form-item>
+        <el-form-item label="原初始密码*" required>
+          <el-input v-model="changePwdForm.oldPwd" type="password" placeholder="请输入初始密码（默认 123456）" show-password />
+        </el-form-item>
+        <el-form-item label="设置新密码*" required>
+          <el-input 
+            v-model="changePwdForm.newPwd" 
+            type="password" 
+            placeholder="至少8位，含字母+数字+特殊符号" 
+            show-password 
+          />
+          <div class="pwd-strength-hint">
+            <span :class="{ 'valid-req': pwdCheckLength }">✔ 长度≥8位</span>
+            <span :class="{ 'valid-req': pwdCheckLetter }">✔ 包含英文字母</span>
+            <span :class="{ 'valid-req': pwdCheckNumber }">✔ 包含数字</span>
+            <span :class="{ 'valid-req': pwdCheckSpecial }">✔ 包含特殊字符 (!@#$%^&*等)</span>
+          </div>
+        </el-form-item>
+        <el-form-item label="确认新密码*" required>
+          <el-input 
+            v-model="changePwdForm.confirmPwd" 
+            type="password" 
+            placeholder="请再次输入新密码" 
+            show-password 
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <el-button link type="info" @click="cancelForceChange">放弃并返回登录</el-button>
+          <el-button type="primary" :disabled="!isPwdValid" @click="submitForceChangePwd">
+            确认修改并安全进入系统
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 登录页页脚居中：国企版权与ICP备案占位 -->
     <footer class="login-footer">
       <div class="footer-links">
@@ -240,6 +296,74 @@ const QUICK_ROLES = [
   }
 ]
 
+const forceChangePwdVisible = ref(false)
+const pendingUser = ref(null)
+const pendingRole = ref('party_member')
+
+const changePwdForm = ref({
+  oldPwd: '',
+  newPwd: '',
+  confirmPwd: ''
+})
+
+// 密码强度校验：长度>=8位，字母、数字、特殊字符
+const pwdCheckLength = computed(() => (changePwdForm.value.newPwd || '').length >= 8)
+const pwdCheckLetter = computed(() => /[a-zA-Z]/.test(changePwdForm.value.newPwd || ''))
+const pwdCheckNumber = computed(() => /\d/.test(changePwdForm.value.newPwd || ''))
+const pwdCheckSpecial = computed(() => /[^a-zA-Z0-9]/.test(changePwdForm.value.newPwd || ''))
+
+const isPwdValid = computed(() => {
+  return pwdCheckLength.value && 
+         pwdCheckLetter.value && 
+         pwdCheckNumber.value && 
+         pwdCheckSpecial.value &&
+         changePwdForm.value.newPwd === changePwdForm.value.confirmPwd &&
+         changePwdForm.value.oldPwd.trim().length > 0 &&
+         changePwdForm.value.newPwd !== changePwdForm.value.oldPwd
+})
+
+function checkAndProcessLogin(user, role) {
+  // 检查是否为首次登录或需要强制改密 (mustChangePwd === true)
+  if (user.mustChangePwd) {
+    pendingUser.value = user
+    pendingRole.value = role
+    changePwdForm.value = {
+      oldPwd: '',
+      newPwd: '',
+      confirmPwd: ''
+    }
+    forceChangePwdVisible.value = true
+    ElMessage.warning('检测到您首次登录或当前为初始弱密码，依据国企网络安全要求，请先完成强密码修改！')
+  } else {
+    ElMessage.success(`欢迎进入系统，${user.realName} 同志！`)
+    emit('login-success', { user, role })
+  }
+}
+
+function submitForceChangePwd() {
+  if (!isPwdValid.value) {
+    ElMessage.warning('新密码必须包含字母、数字及特殊字符组合且长度不少于8位，且两次输入须一致！')
+    return
+  }
+
+  // 1. 更新密码和状态
+  pendingUser.value.password = changePwdForm.value.newPwd
+  pendingUser.value.mustChangePwd = false
+
+  forceChangePwdVisible.value = false
+  ElMessage.success('恭喜！新密码设置成功，符合国企网络安全高强度标准，正在为您登录系统...')
+
+  setTimeout(() => {
+    emit('login-success', { user: pendingUser.value, role: pendingRole.value })
+  }, 400)
+}
+
+function cancelForceChange() {
+  forceChangePwdVisible.value = false
+  pendingUser.value = null
+  ElMessage.info('已取消改密并返回登录页')
+}
+
 function handleAccountLogin() {
   if (!loginForm.value.username.trim()) {
     ElMessage.warning('请输入用户名或工号！')
@@ -276,8 +400,7 @@ function handleAccountLogin() {
         currentRole = 'party_member'
       }
 
-      ElMessage.success(`欢迎进入系统，${found.realName} 同志！`)
-      emit('login-success', { user: found, role: currentRole })
+      checkAndProcessLogin(found, currentRole)
     } else {
       // 允许模拟登录
       const fallbackUser = {
@@ -288,10 +411,10 @@ function handleAccountLogin() {
         orgName: '中共红河数据产业集团有限公司总支部委员会',
         roleCode: 'GENERAL_BRANCH_ADMIN',
         roleName: '党总支管理员',
+        mustChangePwd: false,
         status: 1
       }
-      ElMessage.success(`欢迎进入智慧党建平台，${fallbackUser.realName}！`)
-      emit('login-success', { user: fallbackUser, role: 'general_branch_admin' })
+      checkAndProcessLogin(fallbackUser, 'general_branch_admin')
     }
   }, 500)
 }
@@ -305,11 +428,11 @@ function handleQuickLogin(roleItem) {
     roleCode: roleItem.roleCode.toUpperCase(),
     roleName: roleItem.roleName,
     orgName: '中共红河数据产业集团有限公司总支部委员会',
+    mustChangePwd: roleItem.roleCode === 'party_member', // 张强首次体验触发改密
     status: 1
   }
 
-  ElMessage.success(`已成功登录：${roleItem.realName}（身份：${roleItem.roleName}）`)
-  emit('login-success', { user: found, role: roleItem.roleCode })
+  checkAndProcessLogin(found, roleItem.roleCode)
 }
 
 function handleForgetPwd() {
@@ -665,5 +788,24 @@ function handleForgetPwd() {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+/* 首次登录强密码检查提示样式 */
+.pwd-strength-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: #f56c6c;
+}
+
+.pwd-strength-hint span {
+  transition: color 0.2s;
+}
+
+.pwd-strength-hint .valid-req {
+  color: #67c23a !important;
+  font-weight: 600;
 }
 </style>
