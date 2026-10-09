@@ -1,101 +1,74 @@
 package com.honghe.party.notice.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.honghe.party.entity.SysNoticeChannel;
-import com.honghe.party.notice.NoticeChannelHandler;
-import com.honghe.party.notice.dto.ChannelSendResult;
-import com.honghe.party.notice.dto.NoticeMessagePayload;
-import lombok.extern.slf4j.Slf4j;
+import com.honghe.party.notice.*;
+import com.honghe.party.notice.dto.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Set;
 
-/**
- * 企业微信应用消息 (API: https://work.weixin.qq.com/api/doc/90000/90135/90236)
- * 协议规范：
- * 1. GET /cgi-bin/gettoken?corpid=ID&corpsecret=SECRET -> 获取 access_token
- * 2. POST /cgi-bin/message/send?access_token=ACCESS_TOKEN -> 发送 textcard / text 结构体
- */
-@Slf4j
 @Component
-public class WeChatWorkChannelHandler implements NoticeChannelHandler {
+public class WeChatWorkChannelHandler extends AbstractChannelHandler {
+    private final ProviderHttpClient http;
+    private final AccessTokenCache tokens;
+    private static final String BASE = "https://qyapi.weixin.qq.com";
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    @Override
-    public String getChannelCode() {
-        return "WECHAT_WORK";
+    public WeChatWorkChannelHandler(ChannelConfig configs, ProviderHttpClient http, AccessTokenCache tokens) {
+        super(configs);
+        this.http = http;
+        this.tokens = tokens;
     }
 
-    @Override
-    public String getChannelName() {
-        return "企业微信应用消息";
+    public String getChannelCode() { return "WECHAT_WORK"; }
+    public String getChannelName() { return "企业微信应用消息"; }
+
+    public void validateConfig(SysNoticeChannel channel) {
+        JsonNode cfg = configs.read(channel);
+        ChannelConfig.required(cfg, "corpId");
+        ChannelConfig.positiveLong(cfg, "agentId");
+        configs.secret(cfg, "secretEnv");
     }
 
-    @Override
-    public ChannelSendResult send(SysNoticeChannel channel, NoticeMessagePayload payload) {
-        try {
-            JsonNode cfg = parseConfig(channel.getConfigJson());
-            String corpId = cfg.path("corpId").asText();
-            String agentId = cfg.path("agentId").asText();
-            String secret = cfg.path("secret").asText();
-            String apiBase = cfg.path("apiBase").asText("https://qyapi.weixin.qq.com");
-
-            if (corpId.isEmpty() || secret.isEmpty()) {
-                return ChannelSendResult.fail(getChannelCode(), "企微参数校验失败：corpId 或 secret 缺失");
+    protected ChannelSendResult deliver(SysNoticeChannel channel, NoticeMessagePayload payload) {
+        JsonNode cfg = configs.read(channel);
+        String target = payload.getReceiverTarget().trim();
+        if (target.contains("@all") || "ALL".equals(payload.getReceiverType())
+                || !target.matches("[a-zA-Z0-9_.@-]+(\\|[a-zA-Z0-9_.@-]+)*") || target.split("\\|").length > 1000) {
+            throw new IllegalArgumentException("请填写企业微信成员 UserID；多个成员用 | 分隔，不支持隐式全员广播");
+        }
+        String corpId = ChannelConfig.required(cfg, "corpId");
+        String secret = configs.secret(cfg, "secretEnv");
+        String key = getChannelCode() + ":" + corpId + ":" + secret;
+        var body = Map.of("touser", target, "agentid", ChannelConfig.positiveLong(cfg, "agentId"),
+                "msgtype", "text", "text", Map.of("content", text(payload, 2048)),
+                "enable_duplicate_check", 1, "duplicate_check_interval", 1800);
+        for (int attempt = 0; attempt < 2; attempt++) {
+            String token = tokens.get(key, () -> http.get(UriComponentsBuilder.fromHttpUrl(BASE + "/cgi-bin/gettoken")
+                    .queryParam("corpid", corpId).queryParam("corpsecret", secret).build().encode().toUri()));
+            JsonNode response = http.post(UriComponentsBuilder.fromHttpUrl(BASE + "/cgi-bin/message/send")
+                    .queryParam("access_token", token).build().encode().toUri(), body);
+            if (response == null || !response.has("errcode")) return ChannelSendResult.unknown(getChannelCode(), "企业微信响应缺少业务状态码，请查询发送记录");
+            int code = response.path("errcode").asInt(-1);
+            if (attempt == 0 && Set.of(40014, 42001, 40001).contains(code)) {
+                tokens.invalidate(key);
+                continue;
             }
-
-            // 构造企微应用消息真实报文 (支持卡片消息 textcard)
-            String targetUser = (payload.getReceiverTarget() != null && !payload.getReceiverTarget().isEmpty())
-                    ? payload.getReceiverTarget()
-                    : "@all";
-
-            Map<String, Object> reqBody = new HashMap<>();
-            reqBody.put("touser", targetUser);
-            reqBody.put("msgtype", "textcard");
-            reqBody.put("agentid", agentId.isEmpty() ? 100008 : Integer.parseInt(agentId));
-
-            Map<String, String> card = new HashMap<>();
-            card.put("title", payload.getTitle());
-            card.put("description", String.format("<div class=\"gray\">%s</div><div class=\"normal\">%s</div>", 
-                    "【红河数据产业集团智慧党建通知】", payload.getContent()));
-            card.put("url", "https://dj.honghe-data.com/#/workbench");
-            card.put("btntxt", "查看详情");
-            reqBody.put("textcard", card);
-
-            String jsonPayload = objectMapper.writeValueAsString(reqBody);
-            log.info("【企微真实分发协议】POST {}/cgi-bin/message/send -> Payload: {}", apiBase, jsonPayload);
-
-            // 在真实微服务对接时，此处通过 HttpClient 请求企业微信 OpenAPI；
-            // 目前系统已完成协议封包与鉴权校验，若为占位或测试密钥则安全留痕
-            String mockMsgId = "WX_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-            String responseMock = "{\"errcode\":0,\"errmsg\":\"ok\",\"msgid\":\"" + mockMsgId + "\"}";
-
-            return ChannelSendResult.ok(getChannelCode(), mockMsgId, responseMock);
-        } catch (Exception e) {
-            log.error("【企业微信发送异常】", e);
-            return ChannelSendResult.fail(getChannelCode(), "企微发送失败: " + e.getMessage());
+            if (code != 0) return ChannelSendResult.fail(getChannelCode(), "企业微信拒绝请求，错误码：" + code);
+            String id = response.path("msgid").asText("");
+            if (id.isBlank()) return ChannelSendResult.unknown(getChannelCode(), "企业微信未返回消息编号，请查询发送记录");
+            ChannelSendResult result = ChannelSendResult.ok(getChannelCode(), id, "企业微信已受理");
+            for (String field : Set.of("invaliduser", "invalidparty", "invalidtag", "unlicenseduser")) {
+                if (!response.path(field).asText("").isBlank()) {
+                    result.setSuccess(false);
+                    result.setSendStatus(4);
+                    result.setErrorMsg("部分接收人无效或不在应用可见范围/许可内，请在企业微信核对；勿整批重发");
+                }
+            }
+            return result;
         }
-    }
-
-    @Override
-    public ChannelSendResult testConnection(SysNoticeChannel channel, String testTarget) {
-        NoticeMessagePayload testPayload = NoticeMessagePayload.builder()
-                .title("【连通性测试】企业微信党务通道连通性验证")
-                .content("系统与企业微信应用通信握手成功，网络延迟RTT正常，Access Token获取逻辑正常。")
-                .receiverTarget(testTarget)
-                .receiverName("测试人员")
-                .build();
-        return send(channel, testPayload);
-    }
-
-    private JsonNode parseConfig(String json) throws Exception {
-        if (json == null || json.trim().isEmpty()) {
-            return objectMapper.createObjectNode();
-        }
-        return objectMapper.readTree(json);
+        return ChannelSendResult.fail(getChannelCode(), "企业微信令牌更新后仍不可用");
     }
 }

@@ -401,7 +401,7 @@
                   <span class="si-tag tag-warn">谈话时限督办</span>
                   <span class="si-cite">《细则》第八条</span>
                 </div>
-                <div class="si-subject">陈思佳（集团企划党群部）· 递交申请第 22 天</div>
+                <div class="si-subject">陈思佳（集团综合管理部）· 递交申请第 22 天</div>
                 <div class="si-reason">
                   距离“1个月内派人谈话”红线仅剩 <strong>8 天</strong>。已向支部书记亮牌督办，需按规程出具《谈话记录表》。
                 </div>
@@ -881,13 +881,10 @@ onUnmounted(() => {
 .cpc-flag-badge {
   width: 32px;
   height: 32px;
-  background: #8e1012;
-  border: 1.5px solid #d4af37;
-  border-radius: 50%;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #d4af37;
 }
 
 .title-emblem-row h1 {

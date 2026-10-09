@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.honghe.party.common.JsonStringTypeHandler;
 
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_notice_channel")
+@TableName(value = "sys_notice_channel", autoResultMap = true)
 public class SysNoticeChannel {
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -16,7 +18,9 @@ public class SysNoticeChannel {
     private String channelName;
     private Integer channelType; // 1: 站内消息, 2: 手机短信, 3: 邮件, 4: 企业微信, 5: 钉钉
     private Integer enabled; // 1启用 0停用
-    private String configJson; // 鉴权配置及API Key
+    @TableField(typeHandler = JsonStringTypeHandler.class)
+    private String configJson; // 非敏感配置与服务器凭据环境变量名
+    @TableField(typeHandler = JsonStringTypeHandler.class)
     private String templateJson; // 预设模板配置
     private String remark;
     private LocalDateTime updatedAt;

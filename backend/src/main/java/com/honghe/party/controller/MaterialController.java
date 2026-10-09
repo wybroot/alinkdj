@@ -56,6 +56,22 @@ public class MaterialController {
             @RequestParam("materialCode") String materialCode,
             @RequestParam("materialName") String materialName) throws IOException {
 
+        if (file.isEmpty()) {
+            return Result.error("上传的材料文件不能为空");
+        }
+
+        // 文件大小防护：单文件不超过 30MB
+        if (file.getSize() > 30L * 1024 * 1024) {
+            return Result.error("单份材料文件大小不能超过 30MB");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = cn.hutool.core.io.FileUtil.extName(originalFilename);
+        List<String> allowedExts = List.of("pdf", "doc", "docx", "jpg", "jpeg", "png");
+        if (extension == null || !allowedExts.contains(extension.toLowerCase())) {
+            return Result.error("仅支持上传常用文档或图片格式 (PDF, Word, JPG, PNG)");
+        }
+
         String storedPath = fileStorageService.storeFile(file, memberId, stepCode);
 
         PartyMaterialFile record = new PartyMaterialFile();

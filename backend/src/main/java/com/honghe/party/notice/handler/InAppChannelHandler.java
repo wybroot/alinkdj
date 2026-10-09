@@ -28,9 +28,9 @@ public class InAppChannelHandler implements NoticeChannelHandler {
 
     @Override
     public ChannelSendResult send(SysNoticeChannel channel, NoticeMessagePayload payload) {
-        log.info("【站内信即时路由】Receiver: {}, Title: {}", payload.getReceiverName(), payload.getTitle());
+        if (payload.getReceiverId() == null) return ChannelSendResult.fail(getChannelCode(), "站内信必须选择系统接收人");
         String msgId = "MSG_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-        return ChannelSendResult.ok(getChannelCode(), msgId, "{\"status\":\"delivered\",\"msgId\":\"" + msgId + "\"}");
+        return ChannelSendResult.ok(getChannelCode(), msgId, "站内通知由调度服务持久化后可读取");
     }
 
     @Override

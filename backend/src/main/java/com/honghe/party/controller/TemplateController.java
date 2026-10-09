@@ -68,8 +68,17 @@ public class TemplateController {
 
         String originalFilename = file.getOriginalFilename();
         String extension = FileUtil.extName(originalFilename);
-        if (!"docx".equalsIgnoreCase(extension) && !"doc".equalsIgnoreCase(extension)) {
-            return Result.error("仅支持上传 Word 格式模板 (.docx)");
+        if (!"docx".equalsIgnoreCase(extension)) {
+            return Result.error("仅支持上传标准 Word 格式模板 (.docx)");
+        }
+
+        // 文件魔数校验：防止后缀伪造 (DOCX 是基于 ZIP 容器，头部必须是 50 4B 03 04)
+        byte[] header = new byte[4];
+        try (java.io.InputStream is = file.getInputStream()) {
+            int read = is.read(header);
+            if (read < 4 || header[0] != 0x50 || header[1] != 0x4B || header[2] != 0x03 || header[3] != 0x04) {
+                return Result.error("文件安全校验未通过：上传的文件非标准 DOCX 文档或已损坏");
+            }
         }
 
         // 保存至 uploads/templates/custom/step_X/
@@ -140,7 +149,11 @@ public class TemplateController {
                 ? template.getCustomFileName()
                 : template.getDefaultFileName();
 
-        Path path = Paths.get(localBasePath, targetPath);
+        Path basePath = Paths.get(localBasePath).toAbsolutePath().normalize();
+        Path path = basePath.resolve(targetPath).normalize();
+        if (!path.startsWith(basePath)) {
+            return ResponseEntity.badRequest().build();
+        }
         File file = path.toFile();
         if (!file.exists()) {
             // 如果物理文件不存在（初次部署），返回示例虚拟资源句柄

@@ -13,11 +13,11 @@
       <header class="dj-header">
         <div class="header-left">
           <div class="logo-badge">
-            <PartyEmblem style="width: 28px; height: 28px;" />
+            <PartyEmblem style="width: 32px; height: 32px;" />
           </div>
           <div class="title-group">
-            <h1>红河数据产业集团 · 智慧党建云平台</h1>
-            <span class="sub-title">发展党员全生命周期管理系统（红河数据产业集团有限公司党总支）</span>
+            <h1>红河数据产业集团 · 智慧党建数字化平台</h1>
+            <span class="sub-title">中共红河数据产业集团有限公司总支部委员会</span>
           </div>
         </div>
 
@@ -1090,11 +1090,11 @@
               <div v-if="hasRole('sys_admin')" class="channel-status-cards">
                 <div class="channel-card-header">
                   <div class="title-with-desc">
-                    <h3><el-icon><Connection /></el-icon> 多渠道通知触达矩阵（企微 / 钉钉 / 106政务短信 / 邮件 / 站内信）</h3>
-                    <span class="sub-tip">【超级管理员专属配置】关键合规阻断、时限红线、三会一课通知多维秒级直达接口密钥维护</span>
+                    <h3><el-icon><Connection /></el-icon> 通知渠道配置（企业微信 / 钉钉 / 阿里云短信 / 邮件 / 站内信）</h3>
+                    <span class="sub-tip">配置并启用渠道后，可向指定接收人发送测试消息，核对实际收件情况。</span>
                   </div>
                   <div class="actions">
-                    <el-button type="danger" plain icon="Refresh" @click="triggerSystemComplianceScan">
+                    <el-button type="danger" plain icon="Refresh" :loading="noticeBusy" @click="triggerSystemComplianceScan">
                       执行全集团合规扫描并推送
                     </el-button>
                     <el-button type="primary" icon="Promotion" @click="openSendNoticeDialog">
@@ -1103,6 +1103,7 @@
                   </div>
                 </div>
 
+                <el-alert v-if="!apiSession" title="当前为演示身份。请使用正式账号密码登录，以读取、保存配置或发送通知。" type="info" :closable="false" style="margin-bottom: 16px" />
                 <div class="channel-grid">
                   <div 
                     v-for="ch in noticeChannels" 
@@ -1122,6 +1123,7 @@
                         active-text="启用" 
                         inactive-text="停用"
                         inline-prompt
+                        :disabled="!apiSession || noticeBusy"
                         @change="handleChannelToggle(ch)" 
                       />
                     </div>
@@ -1130,8 +1132,8 @@
                       <el-button link type="primary" size="small" icon="Setting" @click="openChannelConfig(ch)">
                         参数配置
                       </el-button>
-                      <el-button link type="success" size="small" icon="Promotion" @click="testChannelPing(ch)">
-                        连通性测试
+                      <el-button link type="success" size="small" icon="Promotion" :disabled="noticeBusy || !apiSession" @click="testChannelPing(ch)">
+                        发送测试消息
                       </el-button>
                     </div>
                   </div>
@@ -1173,7 +1175,7 @@
                       <el-option label="全部渠道" value="" />
                       <el-option label="企业微信" value="WECHAT_WORK" />
                       <el-option label="钉钉通知" value="DINGTALK" />
-                      <el-option label="政务短信" value="SMS" />
+                      <el-option label="阿里云短信" value="SMS" />
                       <el-option label="站内信" value="IN_APP" />
                       <el-option label="电子邮箱" value="EMAIL" />
                     </el-select>
@@ -1184,7 +1186,8 @@
                     </el-select>
                   </div>
                   <div class="toolbar-right">
-                    <el-button icon="Check" @click="markAllNoticesRead">全部标记已读</el-button>
+                    <el-button icon="Refresh" :loading="noticeBusy" @click="loadNoticeData">刷新记录</el-button>
+                    <el-button icon="Check" @click="markAllNoticesRead">本人通知全部已读</el-button>
                   </div>
                 </div>
 
@@ -1214,11 +1217,15 @@
                     </template>
                   </el-table-column>
                   <el-table-column prop="receiverName" label="接收对象" width="160" show-overflow-tooltip />
+                  <el-table-column label="发送结果" width="145">
+                    <template #default="{ row }"><el-tag :type="row.sendStatus === 1 ? 'success' : row.sendStatus === 2 ? 'danger' : 'warning'">{{ noticeStatus(row) }}</el-tag></template>
+                  </el-table-column>
+                  <el-table-column prop="errorMsg" label="失败原因 / 核对提示" min-width="200" show-overflow-tooltip />
                   <el-table-column prop="sendTime" label="分发时间" width="160" />
                   <el-table-column label="操作" width="120" fixed="right">
                     <template #default="{ row }">
                       <el-button link type="primary" size="small" @click="viewNoticeDetail(row)">详情</el-button>
-                      <el-button v-if="row.isRead === 0" link type="success" size="small" @click="markNoticeAsRead(row)">已阅</el-button>
+                      <el-button v-if="row.isRead === 0 && row.receiverId === currentUser.id" link type="success" size="small" @click="markNoticeAsRead(row)">已阅</el-button>
                     </template>
                   </el-table-column>
                 </el-table>
@@ -1237,7 +1244,7 @@
               <div class="roles-summary-card">
                 <div class="card-header-row">
                   <div class="title-with-desc">
-                    <h3><el-icon><Avatar /></el-icon> 红河智慧党建 RBAC 权责控制角色清单</h3>
+                    <h3><el-icon><Avatar /></el-icon> 红河智慧党建角色与权限</h3>
                     <span class="sub-tip">严格落实“总支审查把关、支部具体承办、纪检一票否决、党员群众参与”</span>
                   </div>
                   <el-button type="primary" plain icon="Plus" @click="openCreateRoleDialog">新建党务角色</el-button>
@@ -1251,7 +1258,7 @@
                     <p class="role-box-desc">{{ role.description }}</p>
                     <div class="role-perms-chips">
                       <el-tag v-for="p in role.permissions.slice(0, 4)" :key="p" size="small" type="info" class="perm-tag">
-                        {{ p }}
+                        {{ permissionLabels[p] || '未命名权限' }}
                       </el-tag>
                       <el-tag v-if="role.permissions.length > 4" size="small" type="info" class="perm-tag">
                         +{{ role.permissions.length - 4 }}项
@@ -1626,6 +1633,7 @@
               <!-- 若为支部管理员，强锁本支部且禁用修改，严禁给其他支部录入 -->
               <el-select 
                 v-model="newMemberForm.branchName" 
+                @change="resetEmployment(newMemberForm)"
                 :disabled="isBranchAdmin"
                 placeholder="请选择党支部" 
                 style="width: 100%"
@@ -1651,13 +1659,15 @@
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="企业行政部门">
-              <el-input v-model="newMemberForm.deptName" placeholder="如 云服务与安全运维部" />
+            <el-form-item label="企业行政部门*" required>
+              <el-select v-model="newMemberForm.deptName" placeholder="请选择部门" style="width: 100%" @change="suggestJobTitle(newMemberForm)">
+                <el-option v-for="dept in getDepartmentOptions(newMemberForm.branchName)" :key="dept.value" :label="dept.label" :value="dept.value" />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="岗位职务">
-              <el-input v-model="newMemberForm.jobTitle" placeholder="如 资深架构师 / 运营主管" />
+            <el-form-item label="岗位职务*" required>
+              <el-input v-model="newMemberForm.jobTitle" placeholder="请输入岗位职务，可修改推荐岗位" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -2247,30 +2257,18 @@
         </el-form-item>
         <el-form-item label="触达渠道*" required>
           <el-select v-model="newNoticeForm.channelCode" style="width: 100%">
-            <el-option label="企业微信应用消息 (工作台)" value="WECHAT_WORK" />
-            <el-option label="钉钉工作通知 (待办与群)" value="DINGTALK" />
-            <el-option label="106政务短信专网 (手机强触达)" value="SMS" />
-            <el-option label="系统站内信 / 红点" value="IN_APP" />
-            <el-option label="国企内网邮箱 (SMTP)" value="EMAIL" />
+            <el-option v-for="ch in noticeChannels.filter(item => item.enabled === 1)" :key="ch.channelCode" :label="ch.channelName" :value="ch.channelCode" />
           </el-select>
         </el-form-item>
-        <el-form-item label="接收对象类型*" required>
-          <el-radio-group v-model="newNoticeForm.receiverType">
-            <el-radio value="ALL">全员广播</el-radio>
-            <el-radio value="ROLE">指定党务角色</el-radio>
-            <el-radio value="USER">指定具体党员</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item v-if="newNoticeForm.receiverType === 'USER'" label="选择党员*" required>
-          <el-select v-model="newNoticeForm.receiverName" filterable style="width: 100%" placeholder="选择在册党员或发展成员">
-            <el-option v-for="m in rosterList" :key="m.id" :label="`${m.name} (${m.workNo} - ${m.branchName})`" :value="m.name" />
+        <el-form-item label="选择系统用户">
+          <el-select v-model="newNoticeForm.receiverId" filterable clearable style="width: 100%" placeholder="选择接收人，使用账号中已登记的渠道地址">
+            <el-option v-for="user in noticeRecipients" :key="user.id" :label="`${user.realName}（${user.workNo}）`" :value="user.id" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="newNoticeForm.receiverType === 'ROLE'" label="指定角色*" required>
-          <el-select v-model="newNoticeForm.receiverName" style="width: 100%">
-            <el-option v-for="r in sysRoles" :key="r.id" :label="r.roleName" :value="r.roleName" />
-          </el-select>
+        <el-form-item v-if="!newNoticeForm.receiverId && newNoticeForm.channelCode !== 'IN_APP'" label="接收地址*" required>
+          <el-input v-model="newNoticeForm.receiverTarget" :placeholder="noticeTargetHint(newNoticeForm.channelCode)" />
         </el-form-item>
+        <el-alert title="外部通知显示“已受理”表示服务商接收请求，实际送达请结合服务商回执核对。" type="info" :closable="false" style="margin-bottom: 16px" />
         <el-form-item label="通知标题*" required>
           <el-input v-model="newNoticeForm.title" placeholder="如 【时限红线】入党谈话即将到期请抓紧推进" />
         </el-form-item>
@@ -2280,7 +2278,7 @@
       </el-form>
       <template #footer>
         <el-button @click="noticeDialogVisible = false">取消</el-button>
-        <el-button type="primary" icon="Promotion" @click="submitSendNotice">立即分发推送</el-button>
+        <el-button type="primary" icon="Promotion" :loading="noticeBusy" @click="submitSendNotice">立即发送</el-button>
       </template>
     </el-dialog>
 
@@ -2295,19 +2293,30 @@
         <el-form-item label="渠道名称">
           <el-input v-model="currentEditingChannel.channelName" disabled />
         </el-form-item>
-        <el-form-item label="渠道代码">
-          <el-input v-model="currentEditingChannel.channelCode" disabled />
+        <el-alert :title="NOTICE_CHANNEL_META[currentEditingChannel.channelCode]?.hint" type="info" :closable="false" style="margin-bottom: 16px" />
+        <p v-if="currentEditingChannel.channelCode !== 'IN_APP'">密钥由运维人员设置到服务器环境变量中，下方只填写变量名，不填写密钥原文。</p>
+        <el-form-item v-for="field in NOTICE_CHANNEL_META[currentEditingChannel.channelCode]?.fields" :key="field.key" :label="field.label" label-width="180px" required>
+          <el-select v-if="field.options" v-model="channelForm[field.key]" style="width: 100%">
+            <el-option v-for="option in field.options" :key="option.value" :label="option.label" :value="option.value" />
+          </el-select>
+          <el-input v-else v-model="channelForm[field.key]" :placeholder="field.default ? String(field.default) : `请输入${field.label}`" />
         </el-form-item>
-        <el-form-item label="配置 JSON">
-          <el-input v-model="currentEditingChannel.configJson" type="textarea" :rows="5" placeholder="配置 API Key、Secret、AgentId、签名等信息" />
-        </el-form-item>
+        <template v-if="currentEditingChannel.channelCode === 'SMS'">
+          <p>按通知类别绑定审核通过的模板；未使用的类别可留空。变量名须与服务商模板完全一致。</p>
+          <div v-for="(label, type) in NOTICE_TYPES" :key="type" style="margin-bottom: 18px">
+            <el-form-item :label="label" label-width="150px"><el-input v-model="smsTemplates[type].templateCode" placeholder="已审核模板编码，例如 SMS_123456789" /></el-form-item>
+            <el-form-item label="模板变量映射" label-width="150px"><el-input v-model="smsTemplates[type].mapping" placeholder='如 {"name":"receiverName","item":"title"}；无变量填 {}' /></el-form-item>
+          </div>
+          <p>可选变量来源：receiverName（姓名）、title（标题）、content（正文）。正文按原文发送，不自动截断。</p>
+        </template>
+        <el-link v-if="NOTICE_CHANNEL_META[currentEditingChannel.channelCode]?.doc" :href="NOTICE_CHANNEL_META[currentEditingChannel.channelCode].doc" target="_blank" rel="noopener noreferrer" type="primary">查看服务商官方对接文档</el-link>
         <el-form-item label="说明备注">
           <el-input v-model="currentEditingChannel.remark" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="channelConfigDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveChannelConfig">保存配置</el-button>
+        <el-button type="primary" :loading="noticeBusy" :disabled="!apiSession" @click="saveChannelConfig">保存配置</el-button>
       </template>
     </el-dialog>
 
@@ -2328,7 +2337,9 @@
         <div class="nd-content">{{ currentViewingNotice.content }}</div>
         <div class="nd-footer">
           <p><strong>接收主体：</strong>{{ currentViewingNotice.receiverName }} ({{ currentViewingNotice.receiverTarget }})</p>
-          <p><strong>发送结果：</strong><el-tag type="success" size="small">通道已成功触达</el-tag></p>
+          <p><strong>发送结果：</strong>{{ noticeStatus(currentViewingNotice) }}</p>
+          <p v-if="currentViewingNotice.providerMessageId"><strong>服务商消息 / 任务编号：</strong>{{ currentViewingNotice.providerMessageId }}</p>
+          <p v-if="currentViewingNotice.errorMsg"><strong>核对提示：</strong>{{ currentViewingNotice.errorMsg }}</p>
         </div>
       </div>
       <template #footer>
@@ -2385,6 +2396,15 @@
         <el-form-item label="电子邮箱">
           <el-input v-model="userForm.email" placeholder="企业内网邮箱" />
         </el-form-item>
+        <el-form-item label="企业微信账号">
+          <el-input v-model="userForm.wecomUserId" placeholder="企业微信通讯录中的成员 UserID" />
+        </el-form-item>
+        <el-form-item label="钉钉成员账号">
+          <el-input v-model="userForm.dingtalkUserId" placeholder="钉钉通讯录中的成员 UserID，不是邮箱" />
+        </el-form-item>
+        <el-form-item v-if="apiSession" :label="isEditingUser ? '重置密码' : '登录密码'">
+          <el-input v-model="userForm.password" type="password" show-password autocomplete="new-password" :placeholder="isEditingUser ? '留空则保留原密码' : '至少8位，含字母、数字和特殊字符'" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="userDialogVisible = false">取消</el-button>
@@ -2403,7 +2423,7 @@
     >
       <div v-if="currentAuthorizingUser">
         <p style="margin-bottom: 12px; color: #606266;">
-          正在为 <strong>{{ currentAuthorizingUser.realName }}</strong>（工号：{{ currentAuthorizingUser.workNo }}）重新指派 RBAC 权限角色：
+          正在为 <strong>{{ currentAuthorizingUser.realName }}</strong>（工号：{{ currentAuthorizingUser.workNo }}）重新分配角色与权限：
         </p>
         <el-radio-group v-model="selectedRoleCodeForAssign" style="display: flex; flex-direction: column; gap: 10px;">
           <el-radio v-for="r in sysRoles" :key="r.id" :value="r.roleCode">
@@ -2474,6 +2494,7 @@
               <!-- 若为支部管理员，强锁本支部且禁用修改，杜绝跨支部建档 -->
               <el-select 
                 v-model="newApplicantForm.branchName" 
+                @change="resetEmployment(newApplicantForm)"
                 :disabled="isBranchAdmin"
                 style="width: 100%"
               >
@@ -2485,8 +2506,10 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="行政部门 / 岗位*" required>
-              <el-input v-model="newApplicantForm.deptName" placeholder="如 技术研发部 / 架构师" />
+            <el-form-item label="企业行政部门*" required>
+              <el-select v-model="newApplicantForm.deptName" placeholder="请选择部门" style="width: 100%" @change="suggestJobTitle(newApplicantForm)">
+                <el-option v-for="dept in getDepartmentOptions(newApplicantForm.branchName)" :key="dept.value" :label="dept.label" :value="dept.value" />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
@@ -2511,6 +2534,10 @@
           </el-col>
         </el-row>
 
+        <el-form-item label="岗位职务*" required>
+          <el-input v-model="newApplicantForm.jobTitle" placeholder="请输入岗位职务，可修改推荐岗位" />
+        </el-form-item>
+
         <el-form-item label="书面申请书原件">
           <el-upload
             action="#"
@@ -2531,11 +2558,14 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import BigScreenView from './components/BigScreenView.vue'
 import LoginView from './components/LoginView.vue'
 import PartyEmblem from './components/PartyEmblem.vue'
+import { getCompanyByBranch, getDepartmentOptions } from './data/companyDepartments.js'
+import { apiRequest, apiSession, clearApiSession, demoEnabled } from './api.js'
+import { NOTICE_CHANNEL_META, NOTICE_TYPES, noticeStatus } from './data/noticeChannels.js'
 import { 
   SOE_ORGS, 
   STAGES_AND_STEPS, 
@@ -2548,13 +2578,11 @@ import {
   MOCK_HONOR_PUNISHMENT_LIST,
   MOCK_SYS_ROLES,
   MOCK_SYS_USERS,
-  MOCK_NOTICE_CHANNELS,
-  MOCK_NOTICE_LOGS
 } from './data/mockData.js'
 
 // 基础模式、大屏状态与登录态
 const isBigScreenMode = ref(false)
-const isLoggedIn = ref(true) // 默认已登录状态，支持退出到登录页与一键切换
+const isLoggedIn = ref(demoEnabled)
 const currentUser = ref(MOCK_SYS_USERS[1]) // 默认杨海 (党总支管理员)
 const currentRole = ref('general_branch_admin')
 const activeTab = ref('workbench')
@@ -2681,6 +2709,7 @@ function handleLogout() {
     '退出登录确认',
     { confirmButtonText: '确定退出', cancelButtonText: '取消', type: 'info' }
   ).then(() => {
+    clearApiSession()
     isLoggedIn.value = false
     ElMessage.success('已安全退出系统')
   }).catch(() => {})
@@ -2744,7 +2773,7 @@ const BASE_RADAR_ALERTS = [
     receiverName: '周国平 (总支纪检委员)',
     receiverTarget: 'zhouguoping@honghe-data.com',
     sendTime: '2026-10-07 10:15:30',
-    content: '发展对象【林雨涵】同志已完成直系亲属政审函调，当前流转至集团纪委出具《廉洁从业意见书》（一票否决权），请纪检风控部周国平部长在线复核会签。'
+    content: '发展对象【林雨涵】同志已完成直系亲属政审函调，当前流转至集团纪委出具《廉洁从业意见书》（一票否决权），请风险管控部周国平部长在线复核会签。'
   }
 ]
 
@@ -2778,6 +2807,27 @@ function goToNoticeCenter() {
 // ==========================================
 // 1. 发展党员工作台与新建申请人业务逻辑
 // ==========================================
+function resetEmployment(form) {
+  form.deptName = getDepartmentOptions(form.branchName)[0]?.value || ''
+  suggestJobTitle(form)
+}
+
+function suggestJobTitle(form) {
+  form.jobTitle = getDepartmentOptions(form.branchName).find(dept => dept.value === form.deptName)?.jobTitle || ''
+}
+
+function validateEmployment(form) {
+  if (!getDepartmentOptions(form.branchName).some(dept => dept.value === form.deptName)) {
+    ElMessage.warning('请选择所属公司的实际行政部门！')
+    return false
+  }
+  if (!form.jobTitle?.trim()) {
+    ElMessage.warning('请输入岗位职务！')
+    return false
+  }
+  return true
+}
+
 const membersList = ref([...MOCK_MEMBERS])
 const addApplicantDialogVisible = ref(false)
 const newApplicantForm = ref({
@@ -2788,6 +2838,7 @@ const newApplicantForm = ref({
   education: '大学本科',
   branchName: '中共红河红数信息技术服务有限公司支部委员会',
   deptName: '',
+  jobTitle: '',
   applyDate: new Date().toISOString().slice(0, 10),
   isFrontline: true,
   isTechnicalTalent: true,
@@ -2838,12 +2889,14 @@ function openAddDialog() {
     age: 26,
     education: '大学本科',
     branchName: defaultBranch,
-    deptName: isBranchAdmin.value ? '技术保障中心 / 运维研发岗' : '红河数据产业集团 · 业务部门',
+    deptName: '',
+    jobTitle: '',
     applyDate: new Date().toISOString().slice(0, 10),
     isFrontline: true,
     isTechnicalTalent: true,
     isDualCultivate: false
   }
+  resetEmployment(newApplicantForm.value)
   addApplicantDialogVisible.value = true
 }
 
@@ -2856,10 +2909,7 @@ function submitCreateApplicant() {
     ElMessage.warning('请输入员工工号！')
     return
   }
-  if (!newApplicantForm.value.deptName.trim()) {
-    ElMessage.warning('请输入所在行政部门与岗位！')
-    return
-  }
+  if (!validateEmployment(newApplicantForm.value)) return
   if (!newApplicantForm.value.applyDate) {
     ElMessage.warning('请选择递交入党申请书日期！')
     return
@@ -2872,12 +2922,6 @@ function submitCreateApplicant() {
   }
 
   const newId = Date.now()
-  const branchShortMap = {
-    '中共红河红数信息技术服务有限公司支部委员会': '红数科技',
-    '中共云南幂次科技有限公司支部委员会': '幂次科技',
-    '中共红河链达科技有限公司支部委员会': '链达科技',
-    '中共红河数据产业集团有限公司总支部委员会': '集团总部'
-  }
 
   const applicantRecord = {
     id: newId,
@@ -2886,9 +2930,9 @@ function submitCreateApplicant() {
     gender: newApplicantForm.value.gender,
     age: newApplicantForm.value.age,
     deptName: newApplicantForm.value.deptName.trim(),
-    jobTitle: newApplicantForm.value.deptName.split('/')[1] || '骨干员工',
+    jobTitle: newApplicantForm.value.jobTitle.trim(),
     education: newApplicantForm.value.education,
-    branchId: 2,
+    branchId: getCompanyByBranch(newApplicantForm.value.branchName).orgId,
     branchName: newApplicantForm.value.branchName,
     originBranch: '企业新录入入党申请人',
     transferInDate: newApplicantForm.value.applyDate,
@@ -3111,6 +3155,7 @@ function openAddMemberDialog() {
     isTechnicalTalent: true,
     isDualCultivate: false
   }
+  resetEmployment(newMemberForm.value)
   addMemberDialogVisible.value = true
 }
 
@@ -3120,7 +3165,7 @@ function openEditMemberDialog(row) {
   newMemberForm.value = {
     name: row.name,
     workNo: row.workNo,
-    idCard: row.idCard,
+    idCard: row.idCard || '',
     gender: row.gender,
     age: row.age,
     branchName: row.branchName,
@@ -3160,6 +3205,7 @@ function submitAddMember() {
   }
 
   // 根据入党时间自动核算党龄
+  if (!validateEmployment(newMemberForm.value)) return
   const autoStandingYears = calculatePartyStandingYears(newMemberForm.value.joinPartyDate)
 
   if (isEditingMember.value) {
@@ -3172,8 +3218,8 @@ function submitAddMember() {
       item.gender = newMemberForm.value.gender
       item.age = newMemberForm.value.age
       item.branchName = newMemberForm.value.branchName
-      item.deptName = newMemberForm.value.deptName || '业务部门'
-      item.jobTitle = newMemberForm.value.jobTitle || '技术骨干'
+      item.deptName = newMemberForm.value.deptName
+      item.jobTitle = newMemberForm.value.jobTitle.trim()
       item.partyStatus = newMemberForm.value.partyStatus
       item.partyPost = newMemberForm.value.partyPost
       item.partyStandingYears = autoStandingYears
@@ -3188,6 +3234,13 @@ function submitAddMember() {
       item.isFrontline = newMemberForm.value.isFrontline
       item.isTechnicalTalent = newMemberForm.value.isTechnicalTalent
       item.isDualCultivate = newMemberForm.value.isDualCultivate
+      const developingMember = membersList.value.find(member => member.id === item.id)
+      if (developingMember) {
+        developingMember.branchName = item.branchName
+        developingMember.branchId = getCompanyByBranch(item.branchName).orgId
+        developingMember.deptName = item.deptName
+        developingMember.jobTitle = item.jobTitle
+      }
     }
     addMemberDialogVisible.value = false
     ElMessage.success(`党员【${newMemberForm.value.name}】档案信息已成功修改更新！`)
@@ -3207,8 +3260,8 @@ function submitAddMember() {
       gender: newMemberForm.value.gender,
       age: newMemberForm.value.age,
       branchName: newMemberForm.value.branchName,
-      deptName: newMemberForm.value.deptName || '业务部门',
-      jobTitle: newMemberForm.value.jobTitle || '技术骨干',
+      deptName: newMemberForm.value.deptName,
+      jobTitle: newMemberForm.value.jobTitle.trim(),
       partyStatus: newMemberForm.value.partyStatus,
       partyPost: newMemberForm.value.partyPost,
       partyStandingYears: autoStandingYears,
@@ -3241,7 +3294,7 @@ function submitAddMember() {
         workNo: newMemObj.workNo,
         phone: '139' + Math.floor(Math.random() * 89999999 + 10000000),
         email: `${newMemObj.workNo.toLowerCase()}@honghe-data.com`,
-        orgId: 2,
+        orgId: getCompanyByBranch(newMemObj.branchName).orgId,
         orgName: newMemObj.branchName,
         roleCode: 'PARTY_MEMBER',
         roleName: '普通在册党员 / 发展成员本人',
@@ -3282,7 +3335,7 @@ function handleRosterExcelSelected(file) {
       gender: '男',
       age: 36,
       branchName: '中共红河红数信息技术服务有限公司支部委员会',
-      deptName: '网络安全运行中心',
+      deptName: '红河红数信息技术服务有限公司 · 技术部',
       jobTitle: '信息安全主管工程师',
       partyStatus: 1,
       partyPost: '党员',
@@ -3302,8 +3355,8 @@ function handleRosterExcelSelected(file) {
       gender: '女',
       age: 30,
       branchName: '中共云南幂次科技有限公司支部委员会',
-      deptName: '数据工程部',
-      jobTitle: '大数据清洗资深开发工程师',
+      deptName: '云南幂次科技有限公司 · 技术创新部',
+      jobTitle: '软件研发工程师',
       partyStatus: 1,
       partyPost: '党员',
       partyStandingYears: 4,
@@ -3322,8 +3375,8 @@ function handleRosterExcelSelected(file) {
       gender: '男',
       age: 33,
       branchName: '中共红河链达科技有限公司支部委员会',
-      deptName: '区块链工程部',
-      jobTitle: '智能合约主任研发工程师',
+      deptName: '红河链达科技有限公司 · 供应链管理部',
+      jobTitle: '供应链管理专员',
       partyStatus: 2,
       partyPost: '预备党员',
       partyStandingYears: 0,
@@ -3342,7 +3395,7 @@ function handleRosterExcelSelected(file) {
       gender: '女',
       age: 27,
       branchName: '中共红河数据产业集团有限公司总支部委员会',
-      deptName: '综合人力部',
+      deptName: '红河数据产业集团有限公司 · 综合管理部',
       jobTitle: '党务人事主管',
       partyStatus: 1,
       partyPost: '党员',
@@ -3377,7 +3430,7 @@ function confirmBatchImportRoster() {
         workNo: m.workNo,
         phone: '139' + Math.floor(Math.random() * 89999999 + 10000000),
         email: `${m.workNo.toLowerCase()}@honghe-data.com`,
-        orgId: 2,
+        orgId: getCompanyByBranch(m.branchName).orgId,
         orgName: m.branchName,
         roleCode: 'PARTY_MEMBER',
         roleName: '普通在册党员 / 发展成员本人',
@@ -4044,15 +4097,23 @@ function deleteHonorItem(row) {
 // ==========================================
 // 4. 党建通知中心与多渠道管理
 // ==========================================
-const noticeChannels = ref([...MOCK_NOTICE_CHANNELS])
-const noticeLogs = ref([...MOCK_NOTICE_LOGS])
+const emptyNoticeChannels = () => Object.entries(NOTICE_CHANNEL_META).map(([code, meta], index) => ({
+  id: index + 1, channelCode: code, channelName: meta.name, icon: meta.icon,
+  enabled: 0, configJson: '{}', templateJson: '{}', remark: meta.hint
+}))
+const noticeChannels = ref(emptyNoticeChannels())
+const noticeLogs = ref([])
+const noticeRecipients = ref([])
+const noticeBusy = ref(false)
+const channelForm = ref({})
+const smsTemplates = ref({})
 const noticeKeyword = ref('')
 const filterNoticeType = ref('')
 const filterNoticeChannel = ref('')
 const filterNoticeRead = ref('')
 
 const unreadNoticeCount = computed(() => {
-  return noticeLogs.value.filter(n => n.isRead === 0).length
+  return noticeLogs.value.filter(n => n.isRead === 0 && n.sendStatus === 1 && n.receiverId === currentUser.value?.id).length
 })
 
 const filteredNoticeLogs = computed(() => {
@@ -4064,7 +4125,7 @@ const filteredNoticeLogs = computed(() => {
       const kw = noticeKeyword.value.toLowerCase()
       const matchTitle = item.title.toLowerCase().includes(kw)
       const matchContent = item.content.toLowerCase().includes(kw)
-      const matchRec = item.receiverName.toLowerCase().includes(kw)
+      const matchRec = (item.receiverName || '').toLowerCase().includes(kw)
       if (!matchTitle && !matchContent && !matchRec) return false
     }
     return true
@@ -4074,10 +4135,11 @@ const filteredNoticeLogs = computed(() => {
 const noticeDialogVisible = ref(false)
 const newNoticeForm = ref({
   noticeType: 'REGULAR',
-  channelCode: 'WECHAT_WORK',
-  receiverType: 'ALL',
-  receiverName: '全集团在册党员及发展对象',
-  receiverTarget: 'all_members',
+  channelCode: 'IN_APP',
+  receiverType: 'USER',
+  receiverId: null,
+  receiverName: '',
+  receiverTarget: '',
   title: '',
   content: ''
 })
@@ -4088,42 +4150,122 @@ const currentEditingChannel = ref(null)
 const noticeDetailVisible = ref(false)
 const currentViewingNotice = ref(null)
 
-function handleChannelToggle(ch) {
-  ElMessage.success(`通知渠道【${ch.channelName}】已切换为：${ch.enabled === 1 ? '已启用' : '已停用'}`)
+async function loadNoticeData() {
+  try {
+    const [channels, logs] = await Promise.all([
+      apiRequest(hasRole('sys_admin') ? '/notice/channels' : '/notice/available-channels'),
+      apiRequest('/notice/logs')
+    ])
+    noticeChannels.value = channels.map(ch => ({ ...ch, icon: NOTICE_CHANNEL_META[ch.channelCode]?.icon || 'Bell' }))
+    noticeLogs.value = logs.map(row => ({ ...row, noticeTypeName: NOTICE_TYPES[row.noticeType] || '党建通知',
+      typeTag: 'info', channelName: NOTICE_CHANNEL_META[row.channelCode]?.name || row.channelCode }))
+  } catch (error) { ElMessage.error(error.message) }
+}
+
+watch(apiSession, session => {
+  noticeChannels.value = emptyNoticeChannels()
+  noticeLogs.value = []
+  noticeRecipients.value = []
+  if (session) loadNoticeData()
+})
+watch(activeTab, tab => {
+  if (tab === 'notices' && apiSession.value) loadNoticeData()
+  if (tab === 'users' && apiSession.value && hasRole('sys_admin')) loadSysUsers()
+})
+
+async function handleChannelToggle(ch) {
+  if (noticeBusy.value) return
+  noticeBusy.value = true
+  try {
+    await apiRequest(`/notice/channels/${ch.id}`, { method: 'PUT', body: { enabled: ch.enabled } })
+    ElMessage.success(ch.enabled === 1 ? '渠道已启用' : '渠道已停用')
+  } catch (error) {
+    ch.enabled = ch.enabled === 1 ? 0 : 1
+    ElMessage.error(error.message)
+  } finally { noticeBusy.value = false }
 }
 
 function openChannelConfig(ch) {
-  currentEditingChannel.value = ch
+  currentEditingChannel.value = { ...ch }
+  const cfg = JSON.parse(ch.configJson || '{}')
+  channelForm.value = Object.fromEntries((NOTICE_CHANNEL_META[ch.channelCode]?.fields || []).map(field => [field.key, cfg[field.key] ?? field.default ?? '']))
+  const templates = JSON.parse(ch.templateJson || '{}')
+  smsTemplates.value = Object.fromEntries(Object.keys(NOTICE_TYPES).map(type => [type, {
+    templateCode: templates[type]?.templateCode || '', mapping: JSON.stringify(templates[type]?.parameters || {})
+  }]))
   channelConfigDialogVisible.value = true
 }
 
-function saveChannelConfig() {
-  channelConfigDialogVisible.value = false
-  ElMessage.success(`渠道【${currentEditingChannel.value?.channelName}】参数配置已保存成功！`)
+async function saveChannelConfig() {
+  if (noticeBusy.value) return
+  noticeBusy.value = true
+  try {
+    const templates = {}
+    if (currentEditingChannel.value.channelCode === 'SMS') {
+      for (const [type, item] of Object.entries(smsTemplates.value)) {
+        if (item.templateCode.trim()) {
+          let parameters
+          try { parameters = JSON.parse(item.mapping) } catch { throw new Error(`${NOTICE_TYPES[type]}的变量映射不是有效 JSON`) }
+          if (!parameters || Array.isArray(parameters) || typeof parameters !== 'object') throw new Error('模板变量映射须为对象')
+          templates[type] = { templateCode: item.templateCode.trim(), parameters }
+        }
+      }
+    }
+    await apiRequest(`/notice/channels/${currentEditingChannel.value.id}`, { method: 'PUT', body: {
+      configJson: JSON.stringify(channelForm.value), templateJson: JSON.stringify(templates), remark: currentEditingChannel.value.remark
+    } })
+    channelConfigDialogVisible.value = false
+    ElMessage.success('渠道配置已保存到服务器')
+    await loadNoticeData()
+  } catch (error) { ElMessage.error(error.message) }
+  finally { noticeBusy.value = false }
 }
 
-function testChannelPing(ch) {
+function noticeTargetHint(code) {
+  return { WECHAT_WORK: '企业微信成员 UserID', DINGTALK: '钉钉成员 UserID（不是邮箱）', SMS: '一个11位中国大陆手机号', EMAIL: '一个有效邮箱地址', IN_APP: '当前登录用户' }[code]
+}
+
+async function testChannelPing(ch) {
+  if (noticeBusy.value) return
   if (ch.enabled === 0) {
     ElMessage.warning(`渠道【${ch.channelName}】当前处于停用状态，请先启用后再进行联通测试！`)
     return
   }
-  ElMessage.success(`正在向【${ch.channelName}】推送连通性测试报文... 通信链路正常响应 (RTT: 42ms)`)
+  try {
+    let target = ''
+    if (ch.channelCode === 'IN_APP') {
+      await ElMessageBox.confirm('将向当前账号发送一条站内测试通知。', '发送测试消息', { confirmButtonText: '发送', cancelButtonText: '取消' })
+    } else {
+      const result = await ElMessageBox.prompt(`将实际发送测试消息${ch.channelCode === 'SMS' ? '，并产生短信费用' : ''}。请输入${noticeTargetHint(ch.channelCode)}。`, '发送测试消息', {
+        confirmButtonText: '确认发送', cancelButtonText: '取消', inputValidator: value => !!value?.trim() || '接收地址不能为空'
+      })
+      target = result.value.trim()
+    }
+    noticeBusy.value = true
+    await apiRequest(`/notice/channels/${ch.channelCode}/test`, { method: 'POST', body: { target } })
+    ElMessage.success('测试消息已受理，请核对实际收件情况')
+  } catch (error) { if (error instanceof Error) ElMessage.error(error.message) }
+  finally { noticeBusy.value = false; if (apiSession.value) await loadNoticeData() }
 }
 
-function openSendNoticeDialog() {
+async function openSendNoticeDialog() {
+  try { noticeRecipients.value = await apiRequest('/notice/recipients') }
+  catch (error) { ElMessage.error(error.message); return }
   newNoticeForm.value = {
     noticeType: 'REGULAR',
-    channelCode: 'WECHAT_WORK',
-    receiverType: 'ALL',
-    receiverName: '全集团在册党员及发展对象',
-    receiverTarget: 'all_members',
+    channelCode: noticeChannels.value.find(ch => ch.enabled === 1)?.channelCode || 'IN_APP',
+    receiverType: 'USER',
+    receiverId: null,
+    receiverName: '',
+    receiverTarget: '',
     title: '',
     content: ''
   }
   noticeDialogVisible.value = true
 }
 
-function submitSendNotice() {
+async function submitSendNotice() {
+  if (noticeBusy.value) return
   if (!newNoticeForm.value.title.trim()) {
     ElMessage.warning('请输入通知标题！')
     return
@@ -4133,86 +4275,102 @@ function submitSendNotice() {
     return
   }
 
-  const chObj = noticeChannels.value.find(c => c.channelCode === newNoticeForm.value.channelCode)
-  const typeMap = {
-    DEADLINE_WARNING: { name: '合规时限预警', tag: 'danger' },
-    TRANS_PROBATION: { name: '转正到期催办', tag: 'warning' },
-    DISCIPLINE_AUDIT: { name: '纪检把关通知', tag: 'primary' },
-    MEETING_NOTICE: { name: '三会一课通知', tag: 'info' },
-    REGULAR: { name: '党建业务通知', tag: '' }
+  if (!newNoticeForm.value.receiverId && (newNoticeForm.value.channelCode === 'IN_APP' || !newNoticeForm.value.receiverTarget.trim())) {
+    return ElMessage.warning('请选择接收用户或填写有效接收地址')
   }
-
-  const meta = typeMap[newNoticeForm.value.noticeType] || { name: '党建通知', tag: 'info' }
-
-  const newLog = {
-    id: Date.now(),
-    noticeType: newNoticeForm.value.noticeType,
-    noticeTypeName: meta.name,
-    typeTag: meta.tag,
-    title: newNoticeForm.value.title.trim(),
-    content: newNoticeForm.value.content.trim(),
-    channelCode: newNoticeForm.value.channelCode,
-    channelName: chObj ? chObj.channelName.split(' ')[0] : '系统通道',
-    receiverType: newNoticeForm.value.receiverType,
-    receiverName: newNoticeForm.value.receiverName,
-    receiverTarget: newNoticeForm.value.receiverTarget || '指定对象',
-    relatedMemberId: null,
-    relatedStepCode: null,
-    sendStatus: 1,
-    isRead: 0,
-    sendTime: new Date().toLocaleString()
-  }
-
-  noticeLogs.value.unshift(newLog)
-  noticeDialogVisible.value = false
-  ElMessage.success(`通知【${newLog.title}】已成功通过【${newLog.channelName}】即时分发推送！`)
+  noticeBusy.value = true
+  try {
+    await apiRequest('/notice/send', { method: 'POST', body: { ...newNoticeForm.value, receiverId: newNoticeForm.value.receiverId || null } })
+    noticeDialogVisible.value = false
+    ElMessage.success('通知已受理，请在记录中核对结果')
+  } catch (error) { ElMessage.error(error.message) }
+  finally { noticeBusy.value = false; await loadNoticeData() }
 }
 
 function viewNoticeDetail(row) {
-  row.isRead = 1
   currentViewingNotice.value = row
   noticeDetailVisible.value = true
 }
 
-function markNoticeAsRead(row) {
-  row.isRead = 1
-  ElMessage.success('已标记该通知为已读')
+async function markNoticeAsRead(row) {
+  try {
+    await apiRequest(`/notice/logs/${row.id}/read`, { method: 'PUT' })
+    row.isRead = 1
+    ElMessage.success('已标记本人通知为已读')
+  } catch (error) { ElMessage.error(error.message) }
 }
 
-function markAllNoticesRead() {
-  noticeLogs.value.forEach(l => l.isRead = 1)
-  ElMessage.success('全部通知已标记为已读！')
+async function markAllNoticesRead() {
+  try {
+    await apiRequest('/notice/logs/read-all', { method: 'POST' })
+    await loadNoticeData()
+    ElMessage.success('本人通知已全部标记为已读')
+  } catch (error) { ElMessage.error(error.message) }
 }
 
-function triggerSystemComplianceScan() {
-  ElMessage.info('正在扫描全集团发展党员 25 步时限红线与考察周期...')
-  setTimeout(() => {
-    // 注入一条新的扫描通知
-    noticeLogs.value.unshift({
-      id: Date.now(),
-      noticeType: 'DEADLINE_WARNING',
-      noticeTypeName: '合规时限预警',
-      typeTag: 'danger',
-      title: '【自动合规扫描】全集团党务流程合规体检报告已生成',
-      content: '今日全集团党建合规防错引擎扫描完毕：张强同志积极分子考察期硬阻断受控（满期前禁止推进），陈思佳同志申请谈话倒计时8天已督促支部书记履职，未发现时序倒挂违规项。',
-      channelCode: 'WECHAT_WORK',
-      channelName: '企业微信',
-      receiverType: 'ROLE',
-      receiverName: '党总支组织员 (集团组织科)',
-      receiverTarget: 'yanghai@honghe-data.com',
-      sendStatus: 1,
-      isRead: 0,
-      sendTime: new Date().toLocaleString()
-    })
-    ElMessage.success('全集团党务合规扫描完成！已自动将督办预警推送到企业微信与短信。')
-  }, 600)
+async function triggerSystemComplianceScan() {
+  if (noticeBusy.value) return
+  try {
+    await ElMessageBox.confirm('将扫描数据库中的发展档案，并通过已配置渠道向相关人员发送提醒。同类预警每天每人只尝试一次。', '执行扫描并发送', { confirmButtonText: '执行', cancelButtonText: '取消' })
+    noticeBusy.value = true
+    const result = await apiRequest('/notice/trigger-warnings', { method: 'POST' })
+    ElMessage.success(`扫描完成，本次受理 ${result.dispatchedCount} 条；请查看记录中的失败原因`)
+  } catch (error) { if (error instanceof Error) ElMessage.error(error.message) }
+  finally { noticeBusy.value = false; if (apiSession.value) await loadNoticeData() }
 }
 
 // ==========================================
 // 5. 党务用户与权限体系 (RBAC)
 // ==========================================
+// 权限编码用于鉴权，角色卡片展示对应的中文名称。
+const permissionLabels = {
+  'user:manage': '用户管理',
+  'role:manage': '角色权限管理',
+  'notice:channel_manage': '通知渠道配置',
+  'notice:send': '发送通知',
+  'notice:view': '查看通知',
+  'workbench:view': '查看发展党员工作台',
+  'workbench:create_applicant': '新建入党申请人档案',
+  'workbench:advance': '推进发展流程',
+  'workbench:audit': '党总支审批',
+  'workbench:transfer': '组织关系转接',
+  'workbench:export': '导出发展台账',
+  'workbench:block_override': '流程拦截处理',
+  'roster:view': '查看党员花名册',
+  'roster:create': '新增党员档案',
+  'roster:edit': '修改党员档案',
+  'roster:import': '导入党员花名册',
+  'roster:export': '导出党员花名册',
+  'meeting:view': '查看组织生活台账',
+  'meeting:create': '新增组织生活记录',
+  'meeting:edit': '修改组织生活记录',
+  'meeting:delete': '删除组织生活记录',
+  'meeting:tags_manage': '管理议题标签',
+  'meeting:export': '导出组织生活台账',
+  'honor:view': '查看奖惩台账',
+  'honor:create': '新增奖惩记录',
+  'honor:edit': '修改奖惩记录',
+  'honor:delete': '删除奖惩记录',
+  'honor:export': '导出奖惩台账',
+  'template:view': '查看文书模板',
+  'template:upload': '上传文书模板',
+  'template:reset': '恢复默认模板',
+  'cockpit:view': '查看党建驾驶舱',
+  'member:self_view': '查看个人档案'
+}
+
 const sysRoles = ref([...MOCK_SYS_ROLES])
 const sysUsers = ref([...MOCK_SYS_USERS])
+async function loadSysUsers() {
+  try {
+    const [roles, users] = await Promise.all([apiRequest('/auth/roles'), apiRequest('/auth/users')])
+    sysRoles.value = roles.map(role => ({ ...role, permissions: JSON.parse(role.permissions || '[]'), userCount: users.filter(user => user.roleIds.includes(role.id)).length }))
+    sysUsers.value = users.map(user => {
+      const role = roles.find(item => user.roleIds.includes(item.id))
+      return { ...user, roleCode: role?.roleCode || '', roleName: user.roleNames.join(' / ') }
+    })
+  } catch (error) { ElMessage.error(error.message) }
+}
 const userKeyword = ref('')
 const filterUserOrg = ref('')
 const filterUserRole = ref('')
@@ -4243,8 +4401,9 @@ const userForm = ref({
   phone: '',
   email: '',
   orgName: '中共红河数据产业集团有限公司总支部委员会',
-  roleCode: 'COMMITTEE_ORGANIZER',
-  roleName: '党总支组织员 (集团组织科)'
+  roleCode: 'PARTY_MEMBER',
+  roleName: '普通在册党员 / 发展成员',
+  wecomUserId: '', dingtalkUserId: '', password: ''
 })
 
 const roleAuthDialogVisible = ref(false)
@@ -4278,8 +4437,9 @@ function openCreateUserDialog() {
     phone: '',
     email: '',
     orgName: '中共红河数据产业集团有限公司总支部委员会',
-    roleCode: 'BRANCH_SECRETARY',
-    roleName: '党支部书记 / 支部组织委员'
+    roleCode: 'PARTY_MEMBER',
+    roleName: '普通在册党员 / 发展成员',
+    wecomUserId: '', dingtalkUserId: '', password: ''
   }
   userDialogVisible.value = true
 }
@@ -4295,7 +4455,8 @@ function editSysUser(row) {
     email: row.email,
     orgName: row.orgName,
     roleCode: row.roleCode,
-    roleName: row.roleName
+    roleName: row.roleName,
+    wecomUserId: row.wecomUserId || '', dingtalkUserId: row.dingtalkUserId || '', password: ''
   }
   userDialogVisible.value = true
 }
@@ -4307,9 +4468,31 @@ function handleUserFormRoleChange(roleCode) {
   }
 }
 
-function saveSysUser() {
+async function saveSysUser() {
   if (!userForm.value.username.trim() || !userForm.value.realName.trim() || !userForm.value.workNo.trim()) {
     ElMessage.warning('请填写必填项：账号、姓名、工号！')
+    return
+  }
+
+  if (apiSession.value) {
+    const role = sysRoles.value.find(item => item.roleCode === userForm.value.roleCode)
+    if (!role) return ElMessage.warning('请选择有效角色')
+    try {
+      const body = { username: userForm.value.username.trim(), realName: userForm.value.realName.trim(), workNo: userForm.value.workNo.trim(),
+        phone: userForm.value.phone, email: userForm.value.email, orgName: userForm.value.orgName,
+        orgId: getCompanyByBranch(userForm.value.orgName)?.orgId, wecomUserId: userForm.value.wecomUserId, dingtalkUserId: userForm.value.dingtalkUserId }
+      if (userForm.value.password) body.password = userForm.value.password
+      const saved = await apiRequest(isEditingUser.value ? `/auth/users/${userForm.value.id}` : '/auth/users', {
+        method: isEditingUser.value ? 'PUT' : 'POST', body
+      })
+      userForm.value.id = saved.id
+      isEditingUser.value = true
+      userForm.value.password = ''
+      await apiRequest(`/auth/users/${saved.id}/roles`, { method: 'POST', body: [role.id] })
+      userDialogVisible.value = false
+      await loadSysUsers()
+      ElMessage.success('账号、接收地址和角色已保存到服务器')
+    } catch (error) { ElMessage.error(error.message) }
     return
   }
 
@@ -4355,9 +4538,18 @@ function assignUserRoles(row) {
   roleAuthDialogVisible.value = true
 }
 
-function confirmAssignRole() {
+async function confirmAssignRole() {
   if (!currentAuthorizingUser.value || !selectedRoleCodeForAssign.value) return
   const r = sysRoles.value.find(item => item.roleCode === selectedRoleCodeForAssign.value)
+  if (apiSession.value && r) {
+    try {
+      await apiRequest(`/auth/users/${currentAuthorizingUser.value.id}/roles`, { method: 'POST', body: [r.id] })
+      roleAuthDialogVisible.value = false
+      await loadSysUsers()
+      ElMessage.success('角色授权已保存到服务器')
+    } catch (error) { ElMessage.error(error.message) }
+    return
+  }
   if (r) {
     currentAuthorizingUser.value.roleCode = r.roleCode
     currentAuthorizingUser.value.roleName = r.roleName
@@ -4366,7 +4558,15 @@ function confirmAssignRole() {
   ElMessage.success(`已为【${currentAuthorizingUser.value.realName}】指派角色为：${r.roleName}`)
 }
 
-function toggleUserStatus(row) {
+async function toggleUserStatus(row) {
+  if (apiSession.value) {
+    try {
+      await apiRequest(`/auth/users/${row.id}`, { method: 'PUT', body: { status: row.status === 1 ? 0 : 1 } })
+      await loadSysUsers()
+      ElMessage.success('账号状态已保存到服务器')
+    } catch (error) { ElMessage.error(error.message) }
+    return
+  }
   row.status = row.status === 1 ? 0 : 1
   ElMessage.success(`账号【${row.realName}】已切换为：${row.status === 1 ? '启用正常' : '已停用禁用'}`)
 }
@@ -4551,12 +4751,10 @@ function exportTableData() {
 .logo-badge {
   width: 42px;
   height: 42px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .title-group h1 {

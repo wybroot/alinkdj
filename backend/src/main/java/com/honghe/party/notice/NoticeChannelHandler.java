@@ -15,6 +15,8 @@ public interface NoticeChannelHandler {
      */
     String getChannelName();
 
+    default void validateConfig(SysNoticeChannel channel) { }
+
     /**
      * 发送真实党建通知报文
      * @param channel 渠道配置对象（包含真实 configJson 等参数）

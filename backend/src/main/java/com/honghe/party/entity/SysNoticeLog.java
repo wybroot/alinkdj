@@ -20,7 +20,9 @@ public class SysNoticeLog {
     private String receiverName;
     private String receiverTarget; // 手机号/邮箱/企微userId
     private String channelCode;
-    private Integer sendStatus; // 1成功 2失败 0待发送
+    private Integer sendStatus; // 0待发送 1已受理/站内存储 2失败 3结果未知 4部分受理
+    private String providerMessageId;
+    private String dedupeKey;
     private String errorMsg;
     private Integer isRead; // 0未读 1已读
     private Long relatedMemberId;

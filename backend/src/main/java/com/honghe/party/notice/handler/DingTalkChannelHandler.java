@@ -1,93 +1,66 @@
 package com.honghe.party.notice.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.honghe.party.entity.SysNoticeChannel;
-import com.honghe.party.notice.NoticeChannelHandler;
-import com.honghe.party.notice.dto.ChannelSendResult;
-import com.honghe.party.notice.dto.NoticeMessagePayload;
-import lombok.extern.slf4j.Slf4j;
+import com.honghe.party.notice.*;
+import com.honghe.party.notice.dto.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Set;
 
-/**
- * 钉钉工作通知与群机器人 (API: https://open.dingtalk.com/document/orgapp/asynchronous-send-business-notification)
- * 协议规范：
- * 1. POST https://oapi.dingtalk.com/gettoken -> 获取 access_token
- * 2. POST https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2 -> 发送 markdown 或 action_card
- */
-@Slf4j
 @Component
-public class DingTalkChannelHandler implements NoticeChannelHandler {
+public class DingTalkChannelHandler extends AbstractChannelHandler {
+    private final ProviderHttpClient http;
+    private final AccessTokenCache tokens;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    @Override
-    public String getChannelCode() {
-        return "DINGTALK";
+    public DingTalkChannelHandler(ChannelConfig configs, ProviderHttpClient http, AccessTokenCache tokens) {
+        super(configs);
+        this.http = http;
+        this.tokens = tokens;
     }
 
-    @Override
-    public String getChannelName() {
-        return "钉钉工作通知";
+    public String getChannelCode() { return "DINGTALK"; }
+    public String getChannelName() { return "钉钉工作通知"; }
+
+    public void validateConfig(SysNoticeChannel channel) {
+        JsonNode cfg = configs.read(channel);
+        if (!ChannelConfig.required(cfg, "corpId").matches("[a-zA-Z0-9_-]+")) throw new IllegalArgumentException("钉钉组织 ID 格式不正确");
+        ChannelConfig.required(cfg, "clientId");
+        ChannelConfig.positiveLong(cfg, "agentId");
+        configs.secret(cfg, "clientSecretEnv");
     }
 
-    @Override
-    public ChannelSendResult send(SysNoticeChannel channel, NoticeMessagePayload payload) {
-        try {
-            JsonNode cfg = parseConfig(channel.getConfigJson());
-            String appKey = cfg.path("appKey").asText();
-            String appSecret = cfg.path("appSecret").asText();
-            String agentId = cfg.path("agentId").asText();
-
-            if (appKey.isEmpty() || appSecret.isEmpty()) {
-                return ChannelSendResult.fail(getChannelCode(), "钉钉参数校验失败：appKey 或 appSecret 缺失");
+    protected ChannelSendResult deliver(SysNoticeChannel channel, NoticeMessagePayload payload) {
+        JsonNode cfg = configs.read(channel);
+        String target = payload.getReceiverTarget().trim();
+        if ("ALL".equals(payload.getReceiverType()) || !target.matches("[a-zA-Z0-9_.-]+(,[a-zA-Z0-9_.-]+)*")
+                || target.split(",").length > 100) throw new IllegalArgumentException("请填写钉钉成员 UserID（最多100个，英文逗号分隔），不能填写邮箱或全员代号");
+        String corpId = ChannelConfig.required(cfg, "corpId");
+        String clientId = ChannelConfig.required(cfg, "clientId");
+        String secret = configs.secret(cfg, "clientSecretEnv");
+        String key = getChannelCode() + ":" + corpId + ":" + clientId + ":" + secret;
+        var body = Map.of("agent_id", ChannelConfig.positiveLong(cfg, "agentId"), "userid_list", target,
+                "to_all_user", false, "msg", Map.of("msgtype", "text", "text", Map.of("content", text(payload, 2048))));
+        for (int attempt = 0; attempt < 2; attempt++) {
+            String token = tokens.get(key, () -> http.post(UriComponentsBuilder
+                    .fromHttpUrl("https://api.dingtalk.com/v1.0/oauth2/" + corpId + "/token").build().toUri(),
+                    Map.of("client_id", clientId, "client_secret", secret, "grant_type", "client_credentials")));
+            JsonNode response = http.post(UriComponentsBuilder
+                    .fromHttpUrl("https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2")
+                    .queryParam("access_token", token).build().encode().toUri(), body);
+            if (response == null || !response.has("errcode")) return ChannelSendResult.unknown(getChannelCode(), "钉钉响应缺少业务状态码，请查询任务记录");
+            int code = response.path("errcode").asInt(-1);
+            if (attempt == 0 && Set.of(88, 40014, 42001).contains(code)) {
+                tokens.invalidate(key);
+                continue;
             }
-
-            Map<String, Object> reqBody = new HashMap<>();
-            reqBody.put("agent_id", agentId.isEmpty() ? 29876543L : Long.parseLong(agentId));
-            reqBody.put("userid_list", payload.getReceiverTarget() != null ? payload.getReceiverTarget() : "all");
-            reqBody.put("to_all_user", "ALL".equalsIgnoreCase(payload.getReceiverType()));
-
-            Map<String, Object> msg = new HashMap<>();
-            msg.put("msgtype", "markdown");
-            Map<String, String> markdown = new HashMap<>();
-            markdown.put("title", payload.getTitle());
-            markdown.put("text", String.format("### %s\n> %s\n\n---\n**红河智慧党建调度中心**", payload.getTitle(), payload.getContent()));
-            msg.put("markdown", markdown);
-            reqBody.put("msg", msg);
-
-            String jsonPayload = objectMapper.writeValueAsString(reqBody);
-            log.info("【钉钉真实分发协议】POST https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2 -> Payload: {}", jsonPayload);
-
-            String mockTaskId = "DING_TASK_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-            String responseMock = "{\"errcode\":0,\"errmsg\":\"ok\",\"task_id\":" + Math.abs(mockTaskId.hashCode()) + "}";
-
-            return ChannelSendResult.ok(getChannelCode(), mockTaskId, responseMock);
-        } catch (Exception e) {
-            log.error("【钉钉发送异常】", e);
-            return ChannelSendResult.fail(getChannelCode(), "钉钉发送失败: " + e.getMessage());
+            if (code != 0) return ChannelSendResult.fail(getChannelCode(), "钉钉拒绝请求，错误码：" + code);
+            String taskId = response.path("task_id").asText("");
+            if (taskId.isBlank()) return ChannelSendResult.unknown(getChannelCode(), "钉钉未返回任务编号，请查询发送记录");
+            return ChannelSendResult.ok(getChannelCode(), taskId, "钉钉已受理异步任务，尚不代表送达");
         }
-    }
-
-    @Override
-    public ChannelSendResult testConnection(SysNoticeChannel channel, String testTarget) {
-        NoticeMessagePayload testPayload = NoticeMessagePayload.builder()
-                .title("【连通性测试】钉钉工作通知通道验证")
-                .content("系统与钉钉开放平台 OpenAPI 鉴权通道正常，工作通知路由配置无误。")
-                .receiverTarget(testTarget)
-                .receiverName("测试人员")
-                .build();
-        return send(channel, testPayload);
-    }
-
-    private JsonNode parseConfig(String json) throws Exception {
-        if (json == null || json.trim().isEmpty()) {
-            return objectMapper.createObjectNode();
-        }
-        return objectMapper.readTree(json);
+        return ChannelSendResult.fail(getChannelCode(), "钉钉令牌更新后仍不可用");
     }
 }

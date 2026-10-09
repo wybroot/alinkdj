@@ -1,7 +1,7 @@
 {
   "name": "alinkdj",
   "version": "1.0.0",
-  "description": "国有企业智慧党建 · 发展党员全生命周期管理系统",
+  "description": "国有企业智慧党建数字化平台",
   "scripts": {
     "dev": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend"

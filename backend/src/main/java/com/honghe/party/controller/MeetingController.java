@@ -112,6 +112,20 @@ public class MeetingController {
             @RequestParam(required = false) String attachTypeName,
             @RequestParam(defaultValue = "组织委员") String operatorName) throws IOException {
 
+        if (file.isEmpty()) {
+            return Result.error("上传的会议附件不能为空");
+        }
+
+        if (file.getSize() > 30L * 1024 * 1024) {
+            return Result.error("会议附件大小不能超过 30MB");
+        }
+
+        String ext = cn.hutool.core.io.FileUtil.extName(file.getOriginalFilename());
+        List<String> allowedExts = List.of("pdf", "doc", "docx", "jpg", "jpeg", "png", "xlsx", "xls");
+        if (ext == null || !allowedExts.contains(ext.toLowerCase())) {
+            return Result.error("仅支持上传办公文档或图片格式 (PDF, Word, Excel, JPG, PNG)");
+        }
+
         PartyMeetingRecord meeting = meetingMapper.selectById(meetingId);
         if (meeting == null) {
             return Result.error(404, "未找到该会议台账记录");

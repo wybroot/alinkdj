@@ -1,5 +1,30 @@
-# Vue 3 + Vite
+# 红河智慧党建云平台 · 前端工程
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+红河数据产业集团有限公司党总支 · 发展党员全生命周期数字化管理系统（国企版）前端工程。
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## 技术栈与规范
+
+- **核心框架**：Vue 3.5 + Vite 8.x
+- **组件库**：Element Plus 2.14
+- **图表可视化**：ECharts 6.1
+- **图标体系**：
+  - 核心政治徽标：中国共产党标准党徽（金黄镰刀铁锤），源自共产党员网官方发布标准矢量原图；
+  - 业务功能图标：Element Plus Icons 与规范 SVG。
+- **部门与组织字典**：
+  - `src/data/companyDepartments.js`：严格定义集团本部及红数信息、幂次科技、链达科技三家子公司的实际行政部门架构，表单级联动与强隔离；
+  - `src/data/noticeChannels.js`：多渠道通知元数据配置与服务商文档映射；
+  - `src/data/mockData.js`：符合《中国共产党发展党员工作细则》的 25 步全规程与四级权限种子数据。
+
+## 本地开发与生产构建
+
+```bash
+# 安装依赖
+npm install
+
+# 启动本地开发服务 (支持后端 /api 反向代理联调)
+npm run dev
+
+# 生产级打包构建
+npm run build
+```
+构建产物输出于 `dist/` 目录，由 Nginx 提供静态托管与反向代理。

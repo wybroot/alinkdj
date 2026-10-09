@@ -11,7 +11,7 @@
       <div class="login-left-brand">
         <div class="brand-top">
           <div class="party-emblem">
-            <PartyEmblem style="width: 44px; height: 44px;" />
+            <PartyEmblem style="width: 52px; height: 52px;" />
           </div>
           <div class="org-titles">
             <div class="org-badge">中共红河数据产业集团有限公司总支部委员会</div>
@@ -39,14 +39,14 @@
             <div class="f-icon"><el-icon><Connection /></el-icon></div>
             <div class="f-text">
               <strong>多渠道党务消息调度直达</strong>
-              <p>企业微信 / 钉钉 / 106政务短信 / 邮件 / 站内信秒级触达</p>
+              <p>企业微信 / 钉钉 / 阿里云短信 / 邮件 / 站内信秒级触达</p>
             </div>
           </div>
           <div class="feature-item">
             <div class="f-icon"><el-icon><DataBoard /></el-icon></div>
             <div class="f-text">
               <strong>国资党建指标全景调度大屏</strong>
-              <p>三家子公司党支部“三会一课”规范台账与先锋示范岗</p>
+              <p>党支部“三会一课”规范台账与先锋示范岗</p>
             </div>
           </div>
         </div>
@@ -105,7 +105,7 @@
           </el-tab-pane>
 
           <!-- 方式 2: 国企党务角色一键快捷体验免密通道 -->
-          <el-tab-pane label="党务角色一键体验通道" name="quick">
+          <el-tab-pane v-if="demoEnabled" label="党务角色演示体验" name="quick">
             <div class="quick-roles-panel">
               <div class="panel-tip">
                 <el-icon><InfoFilled /></el-icon>
@@ -203,7 +203,7 @@
       <div class="footer-links">
         <span>红河数据产业集团有限公司党总支 · 智慧党建数字化管理系统</span>
         <span class="divider">|</span>
-        <span>技术支持：企业信息化管理部 / 企划党群部</span>
+        <span>技术支持：红河数产集团/数据业务部</span>
         <span class="divider">|</span>
         <a href="javascript:void(0)" class="footer-link">系统安全等级保护三级认定</a>
       </div>
@@ -227,10 +227,11 @@ import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PartyEmblem from './PartyEmblem.vue'
 import { MOCK_SYS_USERS } from '../data/mockData.js'
+import { demoEnabled, loginAccount, clearApiSession } from '../api.js'
 
 const emit = defineEmits(['login-success'])
 
-const loginTab = ref('quick')
+const loginTab = ref('account')
 const loggingIn = ref(false)
 const rememberMe = ref(true)
 
@@ -365,62 +366,29 @@ function cancelForceChange() {
   ElMessage.info('已取消改密并返回登录页')
 }
 
-function handleAccountLogin() {
+async function handleAccountLogin() {
   if (!loginForm.value.username.trim()) {
     ElMessage.warning('请输入用户名或工号！')
     return
   }
 
+  if (!loginForm.value.password) return ElMessage.warning('请输入密码')
   loggingIn.value = true
-  setTimeout(() => {
+  try {
+    const session = await loginAccount(loginForm.value.username.trim(), loginForm.value.password)
+    loginForm.value.password = ''
+    emit('login-success', session)
+    ElMessage.success('登录成功')
+  } catch (error) {
+    ElMessage.error(error.message)
+  } finally {
     loggingIn.value = false
-    const kw = loginForm.value.username.trim().toLowerCase()
-    const found = MOCK_SYS_USERS.find(u => 
-      u.username.toLowerCase() === kw || 
-      u.workNo.toLowerCase() === kw || 
-      u.realName === kw
-    )
-
-    if (found) {
-      if (found.status === 0) {
-        ElMessage.error('该党务账号当前已被系统停用禁用，请联系系统管理员！')
-        return
-      }
-
-      // 映射到四级系统角色编码
-      let currentRole = 'party_member'
-      if (found.roleCode === 'SYS_ADMIN') {
-        currentRole = 'sys_admin'
-      } else if (found.roleCode === 'GENERAL_BRANCH_ADMIN') {
-        currentRole = 'general_branch_admin'
-      } else if (found.roleCode === 'BRANCH_ADMIN') {
-        if (found.orgName.includes('红数')) currentRole = 'branch_admin_hs'
-        else if (found.orgName.includes('幂次')) currentRole = 'branch_admin_mc'
-        else currentRole = 'branch_admin_ld'
-      } else {
-        currentRole = 'party_member'
-      }
-
-      checkAndProcessLogin(found, currentRole)
-    } else {
-      // 允许模拟登录
-      const fallbackUser = {
-        id: 999,
-        username: loginForm.value.username,
-        realName: loginForm.value.username,
-        workNo: 'HH-TEMP-001',
-        orgName: '中共红河数据产业集团有限公司总支部委员会',
-        roleCode: 'GENERAL_BRANCH_ADMIN',
-        roleName: '党总支管理员',
-        mustChangePwd: false,
-        status: 1
-      }
-      checkAndProcessLogin(fallbackUser, 'general_branch_admin')
-    }
-  }, 500)
+  }
 }
 
 function handleQuickLogin(roleItem) {
+  if (!demoEnabled) return
+  clearApiSession()
   const found = MOCK_SYS_USERS.find(u => u.username === roleItem.username) || {
     id: 100,
     username: roleItem.username,
@@ -514,14 +482,9 @@ function handleForgetPwd() {
 .party-emblem {
   width: 64px;
   height: 64px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  border: 2px solid #f4d03f;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #f4d03f;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
 

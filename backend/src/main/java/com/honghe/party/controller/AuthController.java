@@ -8,6 +8,9 @@ import com.honghe.party.entity.SysUserRole;
 import com.honghe.party.mapper.SysRoleMapper;
 import com.honghe.party.mapper.SysUserMapper;
 import com.honghe.party.mapper.SysUserRoleMapper;
+import com.honghe.party.auth.JwtService;
+import com.honghe.party.auth.RequestUser;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +22,11 @@ import java.util.*;
 public class AuthController {
 
     @Autowired
+    private JwtService jwtService;
+
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
+
+    @Autowired
     private SysUserMapper userMapper;
 
     @Autowired
@@ -28,17 +36,24 @@ public class AuthController {
     private SysUserRoleMapper userRoleMapper;
 
     /**
-     * 模拟登录 / 快捷免密切换
+     * 账号密码登录，只有校验 BCrypt 密码成功才签发令牌。
      */
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody Map<String, String> loginReq) {
         String username = loginReq.get("username");
+        String password = loginReq.get("password");
+        if (username == null || username.isBlank() || password == null || password.isBlank() || password.length() > 72) {
+            return Result.error(400, "请输入账号和密码");
+        }
         SysUser user = userMapper.selectOne(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
         if (user == null) {
-            return Result.error(404, "用户不存在");
+            return Result.error(401, "账号或密码错误");
         }
         if (user.getStatus() != null && user.getStatus() == 0) {
             return Result.error(403, "该党员账号已被禁用");
+        }
+        if (user.getPassword() == null || !user.getPassword().startsWith("$2") || !passwordEncoder.matches(password, user.getPassword())) {
+            return Result.error(401, "账号或密码错误，旧演示账号须先由管理员设置正式密码");
         }
 
         user.setLastLoginTime(LocalDateTime.now());
@@ -51,13 +66,13 @@ public class AuthController {
         List<SysRole> roles = new ArrayList<>();
         for (SysUserRole ur : userRoles) {
             SysRole r = roleMapper.selectById(ur.getRoleId());
-            if (r != null) {
+            if (r != null && Integer.valueOf(1).equals(r.getStatus())) {
                 roles.add(r);
             }
         }
 
         Map<String, Object> data = new HashMap<>();
-        data.put("token", "HONGHE_PARTY_JWT_TOKEN_" + user.getId() + "_" + System.currentTimeMillis());
+        data.put("token", jwtService.issue(user.getId()));
         data.put("userInfo", user);
         data.put("roles", roles);
 
@@ -90,6 +105,8 @@ public class AuthController {
             map.put("workNo", u.getWorkNo());
             map.put("phone", u.getPhone());
             map.put("email", u.getEmail());
+            map.put("wecomUserId", u.getWecomUserId());
+            map.put("dingtalkUserId", u.getDingtalkUserId());
             map.put("orgId", u.getOrgId());
             map.put("orgName", u.getOrgName());
             map.put("status", u.getStatus());
@@ -125,7 +142,8 @@ public class AuthController {
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         if (user.getStatus() == null) user.setStatus(1);
-        if (user.getPassword() == null) user.setPassword("123456");
+        if (!validPassword(user.getPassword())) return Result.error(400, "请设置8至72字节且含字母、数字、特殊字符的密码");
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         userMapper.insert(user);
         return Result.success("新建党务账号成功", user);
     }
@@ -135,6 +153,10 @@ public class AuthController {
      */
     @PutMapping("/users/{id}")
     public Result<SysUser> updateUser(@PathVariable Long id, @RequestBody SysUser user) {
+        if (user.getPassword() != null) {
+            if (!validPassword(user.getPassword())) return Result.error(400, "请设置8至72字节且含字母、数字、特殊字符的密码");
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
         user.setId(id);
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
@@ -185,5 +207,24 @@ public class AuthController {
             roleMapper.updateById(role);
         }
         return Result.success("保存角色权限成功", role);
+    }
+
+    @PutMapping("/password")
+    public Result<String> changePassword(@RequestAttribute(RequestUser.ATTRIBUTE) RequestUser principal, @RequestBody Map<String, String> request) {
+        String oldPassword = request.get("oldPassword");
+        String newPassword = request.get("newPassword");
+        if (oldPassword == null || !passwordEncoder.matches(oldPassword, principal.user().getPassword())) return Result.error(400, "原密码错误");
+        if (!validPassword(newPassword)) return Result.error(400, "新密码须为8至72字节且含字母、数字、特殊字符");
+        SysUser updated = new SysUser();
+        updated.setId(principal.user().getId());
+        updated.setPassword(passwordEncoder.encode(newPassword));
+        updated.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(updated);
+        return Result.success("密码已更新");
+    }
+
+    private boolean validPassword(String password) {
+        return password != null && password.length() >= 8 && password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72
+                && password.matches("(?s).*[a-zA-Z].*") && password.matches("(?s).*\\d.*") && password.matches("(?s).*[^a-zA-Z0-9].*");
     }
 }

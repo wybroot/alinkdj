@@ -1,93 +1,77 @@
 package com.honghe.party.notice.handler;
 
+import com.aliyun.dysmsapi20170525.models.SendSmsRequest;
+import com.aliyun.dysmsapi20170525.models.SendSmsResponseBody;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.honghe.party.entity.SysNoticeChannel;
-import com.honghe.party.notice.NoticeChannelHandler;
-import com.honghe.party.notice.dto.ChannelSendResult;
-import com.honghe.party.notice.dto.NoticeMessagePayload;
-import lombok.extern.slf4j.Slf4j;
+import com.honghe.party.notice.*;
+import com.honghe.party.notice.dto.*;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
-import java.util.regex.Pattern;
+import java.util.Set;
 
-/**
- * 106 党务政务短信专网通道 (主流标准：阿里云短信/中国移动行业短信云网关)
- * 协议规范：
- * - 请求签名、短信签名 (SignName)、模板CODE (TemplateCode) 与 TemplateParam (JSON 变量替换)
- */
-@Slf4j
 @Component
-public class SmsChannelHandler implements NoticeChannelHandler {
+public class SmsChannelHandler extends AbstractChannelHandler {
+    private final AliyunSmsGateway gateway;
+    private final ObjectMapper mapper = new ObjectMapper();
+    private static final Set<String> SOURCES = Set.of("receiverName", "title", "content");
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private static final Pattern PHONE_PATTERN = Pattern.compile("^1[3-9]\\d{9}$");
-
-    @Override
-    public String getChannelCode() {
-        return "SMS";
+    public SmsChannelHandler(ChannelConfig configs, AliyunSmsGateway gateway) {
+        super(configs);
+        this.gateway = gateway;
     }
 
-    @Override
-    public String getChannelName() {
-        return "106党务政务短信专网";
+    public String getChannelCode() { return "SMS"; }
+    public String getChannelName() { return "阿里云短信"; }
+
+    public void validateConfig(SysNoticeChannel channel) {
+        JsonNode cfg = configs.read(channel);
+        if (!"ALIYUN".equals(ChannelConfig.required(cfg, "provider"))) throw new IllegalArgumentException("当前短信通道仅支持阿里云短信");
+        ChannelConfig.required(cfg, "signName");
+        configs.secret(cfg, "accessKeyIdEnv");
+        configs.secret(cfg, "accessKeySecretEnv");
+        JsonNode templates = configs.parse(channel.getTemplateJson());
+        if (templates.isEmpty()) throw new IllegalArgumentException("请配置已审核通过的短信模板及变量映射");
+        templates.fields().forEachRemaining(entry -> {
+            JsonNode template = entry.getValue();
+            if (!ChannelConfig.required(template, "templateCode").matches("SMS_[A-Za-z0-9]+")) throw new IllegalArgumentException("短信模板编码格式不正确");
+            JsonNode params = template.path("parameters");
+            if (!params.isObject()) throw new IllegalArgumentException("短信模板 parameters 必须是变量映射对象，无变量时填写空对象");
+            params.fields().forEachRemaining(param -> {
+                if (!SOURCES.contains(param.getValue().asText())) throw new IllegalArgumentException("短信变量来源仅支持 receiverName、title、content");
+            });
+        });
     }
 
-    @Override
-    public ChannelSendResult send(SysNoticeChannel channel, NoticeMessagePayload payload) {
+    protected ChannelSendResult deliver(SysNoticeChannel channel, NoticeMessagePayload payload) throws Exception {
+        String phone = payload.getReceiverTarget().trim();
+        if (!phone.matches("^1[3-9]\\d{9}$")) throw new IllegalArgumentException("短信接收地址必须是一个有效的中国大陆手机号");
+        JsonNode cfg = configs.read(channel);
+        JsonNode template = configs.parse(channel.getTemplateJson()).path(payload.getNoticeType() == null ? "REGULAR" : payload.getNoticeType());
+        String templateCode = ChannelConfig.required(template, "templateCode");
+        Map<String, String> values = Map.of("receiverName", payload.getReceiverName() == null ? "" : payload.getReceiverName(),
+                "title", payload.getTitle(), "content", payload.getContent());
+        Map<String, String> params = new LinkedHashMap<>();
+        template.path("parameters").fields().forEachRemaining(entry -> {
+            String value = values.get(entry.getValue().asText());
+            if (value == null || value.isBlank()) throw new IllegalArgumentException("短信模板变量 " + entry.getKey() + " 缺少值");
+            params.put(entry.getKey(), value);
+        });
+        var request = new SendSmsRequest().setPhoneNumbers(phone).setSignName(ChannelConfig.required(cfg, "signName"))
+                .setTemplateCode(templateCode).setTemplateParam(mapper.writeValueAsString(params));
+        SendSmsResponseBody response;
         try {
-            JsonNode cfg = parseConfig(channel.getConfigJson());
-            String signName = cfg.path("signName").asText("红河数据集团党总支");
-            String apiKey = cfg.path("apiKey").asText();
-            String tplCode = cfg.path("tplDeadline").asText("SMS_001928");
-
-            // 手机号有效性校验
-            String phone = payload.getReceiverTarget();
-            if (phone == null || !PHONE_PATTERN.matcher(phone.trim()).matches()) {
-                // 如果是特殊代号且非11位手机号，提供规范化提示
-                if (phone == null || !phone.contains("1")) {
-                    return ChannelSendResult.fail(getChannelCode(), "短信发送失败：接收人手机号 [" + phone + "] 不符合规范");
-                }
-            }
-
-            // 封装短信模板变量
-            Map<String, String> tplParam = new HashMap<>();
-            tplParam.put("name", payload.getReceiverName() != null ? payload.getReceiverName() : "党员同志");
-            tplParam.put("title", payload.getTitle());
-            tplParam.put("content", payload.getContent().length() > 50 ? payload.getContent().substring(0, 50) + "..." : payload.getContent());
-
-            String paramJson = objectMapper.writeValueAsString(tplParam);
-            log.info("【106短信专网协议】SendSms -> SignName: {}, TemplateCode: {}, PhoneNumbers: {}, TemplateParam: {}",
-                    signName, tplCode, phone, paramJson);
-
-            String mockBizId = "SMS_BIZ_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-            String responseMock = "{\"Code\":\"OK\",\"Message\":\"OK\",\"BizId\":\"" + mockBizId + "\",\"RequestId\":\"" + UUID.randomUUID() + "\"}";
-
-            return ChannelSendResult.ok(getChannelCode(), mockBizId, responseMock);
-        } catch (Exception e) {
-            log.error("【106短信发送异常】", e);
-            return ChannelSendResult.fail(getChannelCode(), "短信发送异常: " + e.getMessage());
+            response = gateway.send(configs.secret(cfg, "accessKeyIdEnv"), configs.secret(cfg, "accessKeySecretEnv"), request);
+        } catch (com.aliyun.tea.TeaException e) {
+            String code = e.getCode() != null ? e.getCode() : "TeaException";
+            return ChannelSendResult.fail(getChannelCode(), "阿里云短信拒绝请求，错误码：" + code);
         }
-    }
-
-    @Override
-    public ChannelSendResult testConnection(SysNoticeChannel channel, String testTarget) {
-        NoticeMessagePayload testPayload = NoticeMessagePayload.builder()
-                .title("【验证码】党建短信通道测试")
-                .content("验证码 891206，您正在进行红河智慧党建平台短信通道联通性测试，5分钟内有效。")
-                .receiverTarget(testTarget != null && PHONE_PATTERN.matcher(testTarget).matches() ? testTarget : "13987301005")
-                .receiverName("测试人员")
-                .build();
-        return send(channel, testPayload);
-    }
-
-    private JsonNode parseConfig(String json) throws Exception {
-        if (json == null || json.trim().isEmpty()) {
-            return objectMapper.createObjectNode();
-        }
-        return objectMapper.readTree(json);
+        if (response == null || response.getCode() == null) return ChannelSendResult.unknown(getChannelCode(), "短信服务未返回业务状态，请查询回执");
+        if (!"OK".equals(response.getCode())) return ChannelSendResult.fail(getChannelCode(), "阿里云短信拒绝请求，错误码：" + response.getCode());
+        if (response.getBizId() == null || response.getBizId().isBlank()) return ChannelSendResult.unknown(getChannelCode(), "短信服务未返回回执编号，请查询发送记录");
+        return ChannelSendResult.ok(getChannelCode(), response.getBizId(), "短信已提交运营商，实际送达以服务商回执为准");
     }
 }

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.LocalDateTime;
 
@@ -13,11 +14,14 @@ public class SysUser {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String username;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
     private String realName;
     private String workNo;
     private String phone;
     private String email;
+    private String wecomUserId;
+    private String dingtalkUserId;
     private Long orgId;
     private String orgName;
     private Long memberId;

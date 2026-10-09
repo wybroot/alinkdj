@@ -67,9 +67,21 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
         return relativeFolder + "/" + newFileName;
     }
 
+    private Path resolveSafePath(String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) {
+            throw new IllegalArgumentException("文件相对路径不能为空");
+        }
+        Path basePath = Paths.get(localBasePath).toAbsolutePath().normalize();
+        Path targetPath = basePath.resolve(relativePath).normalize();
+        if (!targetPath.startsWith(basePath)) {
+            throw new SecurityException("非法访问受控存储目录外的文件路径（路径遍历拦截）：" + relativePath);
+        }
+        return targetPath;
+    }
+
     @Override
     public Resource loadAsResource(String relativePath) {
-        Path filePath = Paths.get(localBasePath, relativePath);
+        Path filePath = resolveSafePath(relativePath);
         File file = filePath.toFile();
         if (!file.exists() || !file.canRead()) {
             throw new RuntimeException("文件不存在或无法读取: " + relativePath);
@@ -79,7 +91,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 
     @Override
     public boolean deleteFile(String relativePath) {
-        Path filePath = Paths.get(localBasePath, relativePath);
+        Path filePath = resolveSafePath(relativePath);
         return FileUtil.del(filePath.toFile());
     }
 }

@@ -1,6 +1,8 @@
 package com.honghe.party.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.honghe.party.auth.JwtService;
+import com.honghe.party.auth.RequestUser;
 import com.honghe.party.common.Result;
 import com.honghe.party.entity.SysRole;
 import com.honghe.party.entity.SysUser;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.*;
 
@@ -25,18 +28,15 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 public class AuthControllerTest {
 
-    @Mock
-    private SysUserMapper userMapper;
-
-    @Mock
-    private SysRoleMapper roleMapper;
-
-    @Mock
-    private SysUserRoleMapper userRoleMapper;
+    @Mock private SysUserMapper userMapper;
+    @Mock private SysRoleMapper roleMapper;
+    @Mock private SysUserRoleMapper userRoleMapper;
+    @Mock private JwtService jwtService;
 
     @InjectMocks
     private AuthController authController;
 
+    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
     private SysUser testUser;
     private SysRole testRole;
 
@@ -45,6 +45,7 @@ public class AuthControllerTest {
         testUser = new SysUser();
         testUser.setId(1L);
         testUser.setUsername("admin");
+        testUser.setPassword(encoder.encode("PartyAdmin@2025!"));
         testUser.setRealName("系统管理员");
         testUser.setWorkNo("SYS-001");
         testUser.setStatus(1);
@@ -53,12 +54,14 @@ public class AuthControllerTest {
         testRole.setId(10L);
         testRole.setRoleCode("SYS_ADMIN");
         testRole.setRoleName("系统管理员角色");
+        testRole.setStatus(1);
     }
 
     @Test
-    @DisplayName("测试用户登录 - 成功流程")
+    @DisplayName("测试用户登录 - 成功流程验证 BCrypt 并签发真实令牌")
     void testLoginSuccess() {
         when(userMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(testUser);
+        when(jwtService.issue(1L)).thenReturn("mock_signed_jwt_token");
 
         SysUserRole ur = new SysUserRole();
         ur.setUserId(1L);
@@ -68,12 +71,13 @@ public class AuthControllerTest {
 
         Map<String, String> req = new HashMap<>();
         req.put("username", "admin");
+        req.put("password", "PartyAdmin@2025!");
 
         Result<Map<String, Object>> result = authController.login(req);
 
         assertEquals(200, result.getCode());
         assertNotNull(result.getData());
-        assertTrue(result.getData().containsKey("token"));
+        assertEquals("mock_signed_jwt_token", result.getData().get("token"));
         assertEquals(testUser, result.getData().get("userInfo"));
         List<SysRole> roles = (List<SysRole>) result.getData().get("roles");
         assertEquals(1, roles.size());
@@ -83,17 +87,16 @@ public class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("测试用户登录 - 用户不存在")
-    void testLoginUserNotFound() {
-        when(userMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+    @DisplayName("测试用户登录 - 密码错误返回 401")
+    void testLoginWrongPassword() {
+        when(userMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(testUser);
 
         Map<String, String> req = new HashMap<>();
-        req.put("username", "unknown");
+        req.put("username", "admin");
+        req.put("password", "WrongPassword@123");
 
         Result<Map<String, Object>> result = authController.login(req);
-
-        assertEquals(404, result.getCode());
-        assertTrue(result.getMessage().contains("用户不存在"));
+        assertEquals(401, result.getCode());
     }
 
     @Test
@@ -104,6 +107,7 @@ public class AuthControllerTest {
 
         Map<String, String> req = new HashMap<>();
         req.put("username", "admin");
+        req.put("password", "PartyAdmin@2025!");
 
         Result<Map<String, Object>> result = authController.login(req);
 
@@ -133,10 +137,11 @@ public class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("测试新建党务用户")
+    @DisplayName("测试新建党务用户：密码进行 BCrypt 散列")
     void testCreateUser() {
         SysUser newUser = new SysUser();
         newUser.setUsername("zhangqiang");
+        newUser.setPassword("Valid@Pass123");
         newUser.setRealName("张强");
         newUser.setWorkNo("HH-HS-012");
 
@@ -145,8 +150,22 @@ public class AuthControllerTest {
         assertEquals(200, result.getCode());
         assertNotNull(result.getData().getCreatedAt());
         assertEquals(1, result.getData().getStatus());
-        assertEquals("123456", result.getData().getPassword());
+        assertTrue(result.getData().getPassword().startsWith("$2a$") || result.getData().getPassword().startsWith("$2b$"));
         verify(userMapper, times(1)).insert(newUser);
+    }
+
+    @Test
+    @DisplayName("测试修改密码接口")
+    void testChangePassword() {
+        RequestUser principal = new RequestUser(testUser, Set.of("SYS_ADMIN"));
+        Map<String, String> req = Map.of(
+                "oldPassword", "PartyAdmin@2025!",
+                "newPassword", "NewStrongPassword@2026#"
+        );
+
+        Result<String> result = authController.changePassword(principal, req);
+        assertEquals(200, result.getCode());
+        verify(userMapper, times(1)).updateById(any(SysUser.class));
     }
 
     @Test
