@@ -1296,3 +1296,371 @@ export const MOCK_HONOR_PUNISHMENT_LIST = [
     attachmentPath: '红数纪谈202402号_谈话诫勉记录单.pdf'
   }
 ];
+
+// ==============================================================================
+// 7. 用户与权限体系 MOCK 数据 (RBAC 角色权限与在册党务账号)
+// ==============================================================================
+export const MOCK_SYS_ROLES = [
+  {
+    id: 1,
+    roleCode: 'COMMITTEE_ORGANIZER',
+    roleName: '党总支组织员 (集团组织科)',
+    description: '负责集团党总支全盘党务规程核验、预审与备案批复、跨支部指标调控与一人一档综合管理',
+    userCount: 2,
+    status: 1,
+    permissions: [
+      'workbench:view', 'workbench:audit', 'workbench:transfer', 'workbench:block_override',
+      'roster:view', 'roster:edit', 'roster:import', 'roster:export',
+      'meeting:view', 'meeting:edit', 'meeting:audit',
+      'honor:view', 'honor:edit',
+      'template:view', 'template:upload', 'template:reset',
+      'cockpit:view', 'user:manage', 'notice:manage'
+    ]
+  },
+  {
+    id: 2,
+    roleCode: 'BRANCH_SECRETARY',
+    roleName: '党支部书记 / 支部组织委员',
+    description: '负责子公司支部发展规程发起推进、召开三会一课、推优写实、思想汇报审阅与日常档案维护',
+    userCount: 4,
+    status: 1,
+    permissions: [
+      'workbench:view', 'workbench:audit', 'workbench:transfer',
+      'roster:view', 'roster:edit',
+      'meeting:view', 'meeting:edit',
+      'honor:view',
+      'template:view',
+      'cockpit:view',
+      'notice:view'
+    ]
+  },
+  {
+    id: 3,
+    roleCode: 'DISCIPLINE_INSPECTOR',
+    roleName: '党总支纪检委员 (纪检风控部)',
+    description: '行使政治审查中廉洁从业审核与一票否决权、监督党内纪律处分诫勉台账',
+    userCount: 1,
+    status: 1,
+    permissions: [
+      'workbench:view', 'workbench:discipline_audit',
+      'honor:view', 'honor:edit',
+      'cockpit:view',
+      'notice:view'
+    ]
+  },
+  {
+    id: 4,
+    roleCode: 'SYS_ADMIN',
+    roleName: '系统超级管理员',
+    description: '管理全局用户账号、分配角色与权限、维护通知渠道与安全审计配置',
+    userCount: 1,
+    status: 1,
+    permissions: [
+      'user:manage', 'role:manage', 'notice:manage', 'log:view', 'template:upload'
+    ]
+  },
+  {
+    id: 5,
+    roleCode: 'PARTY_MEMBER',
+    roleName: '普通在册党员 / 发展成员本人',
+    description: '查看个人成长全景档案、在线查收会议通知与合规催办提醒、填报思想汇报与转正申请',
+    userCount: 28,
+    status: 1,
+    permissions: [
+      'member:self_view', 'notice:view', 'file:upload_self'
+    ]
+  }
+];
+
+export const MOCK_SYS_USERS = [
+  {
+    id: 1,
+    username: 'admin',
+    realName: '系统管理员',
+    workNo: 'SYS-ADMIN-01',
+    phone: '13888880001',
+    email: 'admin@honghe-data.com',
+    orgId: 1,
+    orgName: '中共红河数据产业集团有限公司总支部委员会',
+    roleCode: 'SYS_ADMIN',
+    roleName: '系统超级管理员',
+    roleIds: [4],
+    status: 1,
+    lastLoginTime: '2026-10-09 10:28:15',
+    createdAt: '2025-01-01'
+  },
+  {
+    id: 2,
+    username: 'yanghai',
+    realName: '杨海',
+    workNo: 'HH-JT-005',
+    phone: '13987301005',
+    email: 'yanghai@honghe-data.com',
+    orgId: 1,
+    orgName: '中共红河数据产业集团有限公司总支部委员会',
+    roleCode: 'COMMITTEE_ORGANIZER',
+    roleName: '党总支组织员 (集团组织科)',
+    roleIds: [1],
+    partyPost: '党总支组织委员 / 综合管理部部长',
+    status: 1,
+    lastLoginTime: '2026-10-09 09:15:42',
+    createdAt: '2025-01-01'
+  },
+  {
+    id: 3,
+    username: 'zhouguoping',
+    realName: '周国平',
+    workNo: 'HH-JT-003',
+    phone: '13987301003',
+    email: 'zhouguoping@honghe-data.com',
+    orgId: 1,
+    orgName: '中共红河数据产业集团有限公司总支部委员会',
+    roleCode: 'DISCIPLINE_INSPECTOR',
+    roleName: '党总支纪检委员 (纪检风控部)',
+    roleIds: [3],
+    partyPost: '党总支纪检委员 / 纪检风控部部长',
+    status: 1,
+    lastLoginTime: '2026-10-08 16:40:11',
+    createdAt: '2025-01-01'
+  },
+  {
+    id: 4,
+    username: 'liweimin',
+    realName: '李卫民',
+    workNo: 'HH-HS-001',
+    phone: '13987302001',
+    email: 'liweimin@hongshu-info.com',
+    orgId: 2,
+    orgName: '中共红河红数信息技术服务有限公司支部委员会',
+    roleCode: 'BRANCH_SECRETARY',
+    roleName: '党支部书记 / 支部组织委员',
+    roleIds: [2],
+    partyPost: '红数信息党支部书记 / 总经理',
+    status: 1,
+    lastLoginTime: '2026-10-09 08:50:33',
+    createdAt: '2025-01-01'
+  },
+  {
+    id: 5,
+    username: 'liujianhua',
+    realName: '刘建华',
+    workNo: 'HH-MC-001',
+    phone: '13987303001',
+    email: 'liujianhua@mici-tech.com',
+    orgId: 3,
+    orgName: '中共云南幂次科技有限公司支部委员会',
+    roleCode: 'BRANCH_SECRETARY',
+    roleName: '党支部书记 / 支部组织委员',
+    roleIds: [2],
+    partyPost: '幂次科技党支部书记 / 执行董事',
+    status: 1,
+    lastLoginTime: '2026-10-08 17:10:05',
+    createdAt: '2025-01-01'
+  },
+  {
+    id: 6,
+    username: 'chenming',
+    realName: '陈明',
+    workNo: 'HH-LD-001',
+    phone: '13987304001',
+    email: 'chenming@lianda-tech.com',
+    orgId: 4,
+    orgName: '中共红河链达科技有限公司支部委员会',
+    roleCode: 'BRANCH_SECRETARY',
+    roleName: '党支部书记 / 支部组织委员',
+    roleIds: [2],
+    partyPost: '链达科技党支部书记 / 总经理',
+    status: 1,
+    lastLoginTime: '2026-10-07 14:22:19',
+    createdAt: '2025-01-01'
+  },
+  {
+    id: 7,
+    username: 'zhangqiang',
+    realName: '张强',
+    workNo: 'HH-HS-012',
+    phone: '13987302012',
+    email: 'zhangqiang@hongshu-info.com',
+    orgId: 2,
+    orgName: '中共红河红数信息技术服务有限公司支部委员会',
+    roleCode: 'PARTY_MEMBER',
+    roleName: '普通在册党员 / 发展成员本人',
+    roleIds: [5],
+    partyPost: '积极分子 (第7步)',
+    status: 1,
+    lastLoginTime: '2026-10-09 11:05:00',
+    createdAt: '2025-04-10'
+  },
+  {
+    id: 8,
+    username: 'linyuhan',
+    realName: '林雨涵',
+    workNo: 'HH-MC-035',
+    phone: '13987303035',
+    email: 'linyuhan@mici-tech.com',
+    orgId: 3,
+    orgName: '中共云南幂次科技有限公司支部委员会',
+    roleCode: 'PARTY_MEMBER',
+    roleName: '普通在册党员 / 发展成员本人',
+    roleIds: [5],
+    partyPost: '发展对象 (第13步)',
+    status: 1,
+    lastLoginTime: '2026-10-08 15:30:45',
+    createdAt: '2025-09-01'
+  }
+];
+
+// ==============================================================================
+// 8. 多渠道通知服务配置与通知消息中心 MOCK 数据
+// ==============================================================================
+export const MOCK_NOTICE_CHANNELS = [
+  {
+    id: 1,
+    channelCode: 'IN_APP',
+    channelName: '系统站内信 / 实时红点',
+    channelType: 1,
+    enabled: 1,
+    statusText: '运行正常',
+    icon: 'Bell',
+    configJson: '{"popup": true, "sound": true, "badge": true}',
+    remark: '平台默认内置通道，提供桌面弹窗与右上角未读数提醒'
+  },
+  {
+    id: 2,
+    channelCode: 'WECHAT_WORK',
+    channelName: '企业微信应用消息',
+    channelType: 4,
+    enabled: 1,
+    statusText: '运行正常',
+    icon: 'ChatDotRound',
+    configJson: '{"corpId": "ww987f6543210abcd", "agentId": 100008, "secret": "******", "apiBase": "https://qyapi.weixin.qq.com"}',
+    remark: '推送至国企干部与员工企业微信工作台【红河智慧党建】专栏'
+  },
+  {
+    id: 3,
+    channelCode: 'DINGTALK',
+    channelName: '钉钉工作通知',
+    channelType: 5,
+    enabled: 1,
+    statusText: '运行正常',
+    icon: 'Promotion',
+    configJson: '{"appKey": "ding7890abcdef1234", "appSecret": "******", "agentId": 29876543}',
+    remark: '同步推送至钉钉待办任务与群机器人通知'
+  },
+  {
+    id: 4,
+    channelCode: 'SMS',
+    channelName: '106党务政务短信专网',
+    channelType: 2,
+    enabled: 1,
+    statusText: '运行正常',
+    icon: 'Message',
+    configJson: '{"signName": "红河数据集团党总支", "tplDeadline": "SMS_001928", "tplTrans": "SMS_001929", "apiKey": "******"}',
+    remark: '用于紧急合规阻断预警、转正临期催办关键红线强触达'
+  },
+  {
+    id: 5,
+    channelCode: 'EMAIL',
+    channelName: '国企内网邮箱服务 (SMTP)',
+    channelType: 3,
+    enabled: 0,
+    statusText: '未启用',
+    icon: 'Message',
+    configJson: '{"host": "mail.honghe-data.com", "port": 465, "ssl": true, "user": "party-center@honghe-data.com"}',
+    remark: '用于定期发送支部三会一课月度通报与纪检政审函调电子版'
+  }
+];
+
+export const MOCK_NOTICE_LOGS = [
+  {
+    id: 1,
+    noticeType: 'DEADLINE_WARNING',
+    noticeTypeName: '合规时限预警',
+    typeTag: 'danger',
+    title: '【合规阻断】入党积极分子考察期不满 365 天强制锁定提醒',
+    content: '【张强】同志积极分子备案时间为 2024-06-15，截至今日考察仅 290 天，未满法定 1 年硬性考察周期，系统合规防错引擎已强制阻断进入第 9 步！',
+    channelCode: 'WECHAT_WORK',
+    channelName: '企业微信',
+    receiverType: 'ROLE',
+    receiverName: '李卫民 (红数信息支部书记)',
+    receiverTarget: 'liweimin@hongshu-info.com',
+    relatedMemberId: 101,
+    relatedStepCode: 7,
+    sendStatus: 1,
+    isRead: 0,
+    sendTime: '2026-10-09 09:30:00'
+  },
+  {
+    id: 2,
+    noticeType: 'DEADLINE_WARNING',
+    noticeTypeName: '合规时限预警',
+    typeTag: 'warning',
+    title: '【时限红线】入党申请谈话 30 天红线临期预警',
+    content: '【陈思佳】同志于 2025-03-15 递交入党申请书，已满 22 天，距离中组部细则“1个月内必须指派专人谈话”红线仅剩 8 天，请支部抓紧开展谈话并归档谈话记录表。',
+    channelCode: 'SMS',
+    channelName: '政务短信',
+    receiverType: 'USER',
+    receiverName: '杨海 (总支组织委员)',
+    receiverTarget: '13987301005',
+    relatedMemberId: 105,
+    relatedStepCode: 2,
+    sendStatus: 1,
+    isRead: 0,
+    sendTime: '2026-10-09 08:45:12'
+  },
+  {
+    id: 3,
+    noticeType: 'TRANS_PROBATION',
+    noticeTypeName: '转正到期催办',
+    typeTag: 'warning',
+    title: '【转正催办】预备党员预备期届满提醒及转正申请催办',
+    content: '预备党员【李晓辉】同志预备期（2024-03-25 ~ 2025-03-25）即将满期，已自动下达转正催办通知，请本人于满期前1-2周主动向链达科技党支部递交书面《转正申请书》。',
+    channelCode: 'WECHAT_WORK',
+    channelName: '企业微信',
+    receiverType: 'USER',
+    receiverName: '李晓辉 (预备党员)',
+    receiverTarget: 'HH-LD-008',
+    relatedMemberId: 103,
+    relatedStepCode: 23,
+    sendStatus: 1,
+    isRead: 1,
+    sendTime: '2026-10-08 14:20:00'
+  },
+  {
+    id: 4,
+    noticeType: 'DISCIPLINE_AUDIT',
+    noticeTypeName: '纪检把关通知',
+    typeTag: 'primary',
+    title: '【纪检会签】发展对象廉洁从业审查意见书待出具',
+    content: '发展对象【林雨涵】同志已完成直系亲属政审函调，当前流转至集团纪委出具《廉洁从业意见书》（一票否决权），请纪检风控部周国平部长在线复核会签。',
+    channelCode: 'DINGTALK',
+    channelName: '钉钉工作通知',
+    receiverType: 'ROLE',
+    receiverName: '周国平 (总支纪检委员)',
+    receiverTarget: 'zhouguoping@honghe-data.com',
+    relatedMemberId: 102,
+    relatedStepCode: 13,
+    sendStatus: 1,
+    isRead: 1,
+    sendTime: '2026-10-07 10:15:30'
+  },
+  {
+    id: 5,
+    noticeType: 'MEETING_NOTICE',
+    noticeTypeName: '三会一课通知',
+    typeTag: 'info',
+    title: '【组织生活】2026年第十期“牢记嘱托勇担使命”主题党日活动召开通知',
+    content: '定于 2026-10-15 下午 14:30 在集团二楼党建实训室召开 10 月主题党日，请各支部全体党员及发展对象佩戴党徽按时签到参会。',
+    channelCode: 'IN_APP',
+    channelName: '站内信',
+    receiverType: 'ALL',
+    receiverName: '全集团在册党员及发展对象',
+    receiverTarget: 'all_members',
+    relatedMemberId: null,
+    relatedStepCode: null,
+    sendStatus: 1,
+    isRead: 0,
+    sendTime: '2026-10-06 16:00:00'
+  }
+];
+

@@ -4,6 +4,11 @@
 -- 包含：党员花名册、25步发展流转、文档模板管理(默认+导入兼具)、大屏指标统计
 -- ==============================================================================
 
+DROP TABLE IF EXISTS sys_notice_log CASCADE;
+DROP TABLE IF EXISTS sys_notice_channel CASCADE;
+DROP TABLE IF EXISTS sys_user_role CASCADE;
+DROP TABLE IF EXISTS sys_role CASCADE;
+DROP TABLE IF EXISTS sys_user CASCADE;
 DROP TABLE IF EXISTS party_material_file CASCADE;
 DROP TABLE IF EXISTS party_cultivator_relation CASCADE;
 DROP TABLE IF EXISTS party_step_record CASCADE;
@@ -234,6 +239,84 @@ CREATE TABLE party_honor_punishment (
 
 CREATE INDEX idx_hp_cat_type ON party_honor_punishment(category, record_type);
 
+-- 12. 系统党务用户表 (支持密码/免密、企业工号绑定与在册组织)
+CREATE TABLE sys_user (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(100) NOT NULL,
+    real_name VARCHAR(50) NOT NULL,
+    work_no VARCHAR(50) NOT NULL UNIQUE,
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    org_id BIGINT REFERENCES sys_party_org(id),
+    org_name VARCHAR(150),
+    member_id BIGINT REFERENCES party_member(id) ON DELETE SET NULL,
+    status SMALLINT DEFAULT 1,                -- 1: 正常, 0: 禁用
+    avatar VARCHAR(255),
+    last_login_time TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 13. 系统 RBAC 党务角色定义表
+CREATE TABLE sys_role (
+    id BIGSERIAL PRIMARY KEY,
+    role_code VARCHAR(50) NOT NULL UNIQUE,    -- COMMITTEE_ORGANIZER, BRANCH_SECRETARY, DISCIPLINE_INSPECTOR, SYS_ADMIN, PARTY_MEMBER
+    role_name VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    sort_order INT DEFAULT 0,
+    status SMALLINT DEFAULT 1,
+    permissions JSONB,                       -- 权限标识列表
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 14. 用户-角色关联表 (支持多角色)
+CREATE TABLE sys_user_role (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES sys_user(id) ON DELETE CASCADE,
+    role_id BIGINT NOT NULL REFERENCES sys_role(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_user_role UNIQUE (user_id, role_id)
+);
+
+-- 15. 多渠道通知服务配置表 (企业微信/钉钉/106短信/邮箱/站内信)
+CREATE TABLE sys_notice_channel (
+    id BIGSERIAL PRIMARY KEY,
+    channel_code VARCHAR(50) NOT NULL UNIQUE, -- IN_APP, WECHAT_WORK, DINGTALK, SMS, EMAIL
+    channel_name VARCHAR(100) NOT NULL,
+    channel_type SMALLINT NOT NULL,          -- 1: 站内信, 2: 手机短信, 3: 邮件, 4: 企业微信, 5: 钉钉
+    enabled SMALLINT DEFAULT 1,              -- 1: 启用, 0: 停用
+    config_json JSONB,                       -- 接口认证凭据与参数配置
+    template_json JSONB,                     -- 模板映射配置
+    remark VARCHAR(255),
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 16. 党建通知与合规催办调度审计日志表
+CREATE TABLE sys_notice_log (
+    id BIGSERIAL PRIMARY KEY,
+    notice_type VARCHAR(50) NOT NULL,        -- DEADLINE_WARNING, TRANS_PROBATION, DISCIPLINE_AUDIT, MEETING_NOTICE, REGULAR
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    receiver_type VARCHAR(20) DEFAULT 'USER',-- USER, ROLE, ORG, ALL
+    receiver_id BIGINT,
+    receiver_name VARCHAR(100),
+    receiver_target VARCHAR(150),            -- 手机号/邮箱/企微ID
+    channel_code VARCHAR(50) NOT NULL,
+    send_status SMALLINT DEFAULT 1,          -- 1: 成功, 2: 失败, 0: 待发送
+    error_msg TEXT,
+    is_read SMALLINT DEFAULT 0,              -- 0: 未读, 1: 已读
+    related_member_id BIGINT,
+    related_step_code INT,
+    send_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    read_time TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_notice_rec_read ON sys_notice_log(receiver_id, is_read);
+
 -- ==============================================================================
 -- 种子数据初始化（红河数据产业集团有限公司党总支及下设三家子公司支部）
 -- ==============================================================================
@@ -302,3 +385,53 @@ INSERT INTO party_doc_template (step_code, template_code, template_name, is_cust
 (23, 'TPL_STEP23', '转正申请书(标准范本)', FALSE, '23_转正申请书标准模板.docx', '/templates/default/23_official_apply.docx', 'v1.0', '["realName", "probationStart", "probationEnd", "applyDate"]'),
 (24, 'TPL_STEP24', '支部大会转正决议及票决汇总表', FALSE, '24_支部大会转正决议表.docx', '/templates/default/24_congress_official.docx', 'v1.0', '["validVoters", "actualVoters", "agreeVotes", "resolutionText"]'),
 (25, 'TPL_STEP25', '转正批复与党员人事档案移交清单', FALSE, '25_转正批复及档案移交回执.docx', '/templates/default/25_archive_transfer.docx', 'v1.0', '["docNo", "handoverPerson", "receiverPerson", "archiveList"]');
+
+-- 4. 系统用户与角色权限初始化种子数据
+INSERT INTO sys_role (id, role_code, role_name, description, sort_order, status, permissions) VALUES
+(1, 'COMMITTEE_ORGANIZER', '党总支组织员 (集团组织科)', '负责集团党总支全盘党务规程核验、预审与备案批复、跨支部指标调控与一人一档综合管理', 1, 1, '["workbench:view", "workbench:audit", "workbench:transfer", "workbench:block_override", "roster:view", "roster:edit", "roster:import", "roster:export", "meeting:view", "meeting:edit", "meeting:audit", "honor:view", "honor:edit", "template:view", "template:upload", "template:reset", "cockpit:view", "user:manage", "notice:manage"]'),
+(2, 'BRANCH_SECRETARY', '党支部书记 / 支部组织委员', '负责子公司支部发展规程发起推进、召开三会一课、推优写实、思想汇报审阅与日常档案维护', 2, 1, '["workbench:view", "workbench:audit", "workbench:transfer", "roster:view", "roster:edit", "meeting:view", "meeting:edit", "honor:view", "template:view", "cockpit:view", "notice:view"]'),
+(3, 'DISCIPLINE_INSPECTOR', '党总支纪检委员 (纪检风控部)', '行使政治审查中廉洁从业审核与一票否决权、监督党内纪律处分诫勉台账', 3, 1, '["workbench:view", "workbench:discipline_audit", "honor:view", "honor:edit", "cockpit:view", "notice:view"]'),
+(4, 'SYS_ADMIN', '系统超级管理员', '管理全局用户账号、分配角色与权限、维护通知渠道与安全审计配置', 4, 1, '["user:manage", "role:manage", "notice:manage", "log:view", "template:upload"]'),
+(5, 'PARTY_MEMBER', '普通在册党员 / 发展成员本人', '查看个人成长全景档案、在线查收会议通知与合规催办提醒、填报思想汇报与转正申请', 5, 1, '["member:self_view", "notice:view", "file:upload_self"]');
+
+ALTER SEQUENCE sys_role_id_seq RESTART WITH 10;
+
+INSERT INTO sys_user (id, username, password, real_name, work_no, phone, email, org_id, org_name, status, last_login_time) VALUES
+(1, 'admin', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '系统管理员', 'SYS-ADMIN-01', '13888880001', 'admin@honghe-data.com', 1, '中共红河数据产业集团有限公司总支部委员会', 1, CURRENT_TIMESTAMP),
+(2, 'yanghai', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '杨海', 'HH-JT-005', '13987301005', 'yanghai@honghe-data.com', 1, '中共红河数据产业集团有限公司总支部委员会', 1, CURRENT_TIMESTAMP),
+(3, 'zhouguoping', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '周国平', 'HH-JT-003', '13987301003', 'zhouguoping@honghe-data.com', 1, '中共红河数据产业集团有限公司总支部委员会', 1, CURRENT_TIMESTAMP),
+(4, 'liweimin', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '李卫民', 'HH-HS-001', '13987302001', 'liweimin@hongshu-info.com', 2, '中共红河红数信息技术服务有限公司支部委员会', 1, CURRENT_TIMESTAMP),
+(5, 'liujianhua', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '刘建华', 'HH-MC-001', '13987303001', 'liujianhua@mici-tech.com', 3, '中共云南幂次科技有限公司支部委员会', 1, CURRENT_TIMESTAMP),
+(6, 'chenming', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '陈明', 'HH-LD-001', '13987304001', 'chenming@lianda-tech.com', 4, '中共红河链达科技有限公司支部委员会', 1, CURRENT_TIMESTAMP),
+(7, 'zhangqiang', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '张强', 'HH-HS-012', '13987302012', 'zhangqiang@hongshu-info.com', 2, '中共红河红数信息技术服务有限公司支部委员会', 1, CURRENT_TIMESTAMP),
+(8, 'linyuhan', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '林雨涵', 'HH-MC-035', '13987303035', 'linyuhan@mici-tech.com', 3, '中共云南幂次科技有限公司支部委员会', 1, CURRENT_TIMESTAMP);
+
+ALTER SEQUENCE sys_user_id_seq RESTART WITH 100;
+
+INSERT INTO sys_user_role (user_id, role_id) VALUES
+(1, 4), -- admin -> SYS_ADMIN
+(2, 1), -- 杨海 -> COMMITTEE_ORGANIZER
+(3, 3), -- 周国平 -> DISCIPLINE_INSPECTOR
+(4, 2), -- 李卫民 -> BRANCH_SECRETARY
+(5, 2), -- 刘建华 -> BRANCH_SECRETARY
+(6, 2), -- 陈明 -> BRANCH_SECRETARY
+(7, 5), -- 张强 -> PARTY_MEMBER
+(8, 5); -- 林雨涵 -> PARTY_MEMBER
+
+-- 5. 通知渠道服务配置种子数据
+INSERT INTO sys_notice_channel (id, channel_code, channel_name, channel_type, enabled, config_json, remark) VALUES
+(1, 'IN_APP', '系统站内信 / 实时红点', 1, 1, '{"popup": true, "sound": true, "badge": true}', '平台默认内置通道，提供桌面弹窗与右上角未读数提醒'),
+(2, 'WECHAT_WORK', '企业微信应用消息', 4, 1, '{"corpId": "ww987f6543210abcd", "agentId": 100008, "secret": "******", "apiBase": "https://qyapi.weixin.qq.com"}', '推送至国企干部与员工企业微信工作台【红河智慧党建】专栏'),
+(3, 'DINGTALK', '钉钉工作通知', 5, 1, '{"appKey": "ding7890abcdef1234", "appSecret": "******", "agentId": 29876543}', '同步推送至钉钉待办任务与群机器人通知'),
+(4, 'SMS', '106党务政务短信专网', 2, 1, '{"signName": "红河数据集团党总支", "tplDeadline": "SMS_001928", "tplTrans": "SMS_001929", "apiKey": "******"}', '用于紧急合规阻断预警、转正临期催办关键红线强触达'),
+(5, 'EMAIL', '国企内网邮箱服务 (SMTP)', 3, 0, '{"host": "mail.honghe-data.com", "port": 465, "ssl": true, "user": "party-center@honghe-data.com"}', '用于定期发送支部三会一课月度通报与纪检政审函调电子版');
+
+ALTER SEQUENCE sys_notice_channel_id_seq RESTART WITH 10;
+
+-- 6. 通知中心审计与台账种子数据
+INSERT INTO sys_notice_log (notice_type, title, content, receiver_type, receiver_name, receiver_target, channel_code, send_status, is_read, related_member_id, related_step_code) VALUES
+('DEADLINE_WARNING', '【合规阻断】入党积极分子考察期不满 365 天强制锁定提醒', '【张强】同志积极分子备案时间为 2024-06-15，截至今日考察仅 290 天，未满法定 1 年硬性考察周期，系统合规防错引擎已强制阻断进入第 9 步！', 'ROLE', '李卫民 (红数信息支部书记)', 'liweimin@hongshu-info.com', 'WECHAT_WORK', 1, 0, 101, 7),
+('DEADLINE_WARNING', '【时限红线】入党申请谈话 30 天红线临期预警', '【陈思佳】同志于 2025-03-15 递交入党申请书，已满 22 天，距离中组部细则“1个月内必须指派专人谈话”红线仅剩 8 天，请支部抓紧开展谈话并归档谈话记录表。', 'USER', '杨海 (总支组织委员)', '13987301005', 'SMS', 1, 0, 105, 2),
+('TRANS_PROBATION', '【转正催办】预备党员预备期届满提醒及转正申请催办', '预备党员【李晓辉】同志预备期（2024-03-25 ~ 2025-03-25）即将满期，已自动下达转正催办通知，请本人于满期前1-2周主动向链达科技党支部递交书面《转正申请书》。', 'USER', '李晓辉 (预备党员)', 'HH-LD-008', 'WECHAT_WORK', 1, 1, 103, 23),
+('DISCIPLINE_AUDIT', '【纪检会签】发展对象廉洁从业审查意见书待出具', '发展对象【林雨涵】同志已完成直系亲属政审函调，当前流转至集团纪委出具《廉洁从业意见书》（一票否决权），请纪检风控部周国平部长在线复核会签。', 'ROLE', '周国平 (总支纪检委员)', 'zhouguoping@honghe-data.com', 'DINGTALK', 1, 1, 102, 13),
+('MEETING_NOTICE', '【组织生活】2026年第十期“牢记嘱托勇担使命”主题党日活动召开通知', '定于 2026-10-15 下午 14:30 在集团二楼党建实训室召开 10 月主题党日，请各支部全体党员及发展对象佩戴党徽按时签到参会。', 'ALL', '全集团在册党员及发展对象', 'all_members', 'IN_APP', 1, 0, NULL, NULL);
