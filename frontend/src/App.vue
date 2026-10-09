@@ -646,7 +646,7 @@
                   </template>
                 </el-table-column>
 
-                <el-table-column label="操作与附件归档" width="280" fixed="right">
+                <el-table-column label="操作与附件归档" width="310" fixed="right">
                   <template #default="{ row }">
                     <div style="display: flex; gap: 6px; align-items: center">
                       <el-button 
@@ -657,6 +657,16 @@
                         @click="openEditMeetingDialog(row)"
                       >
                         修改
+                      </el-button>
+                      <el-button 
+                        v-if="hasPermission('meeting:delete')" 
+                        type="danger" 
+                        size="small" 
+                        icon="Delete" 
+                        link
+                        @click="deleteMeetingRecord(row)"
+                      >
+                        删除
                       </el-button>
                       <el-button size="small" icon="Paperclip" @click="openMeetingAttachmentsDialog(row)">
                         附件 ({{ (row.attachments && row.attachments.length) || 3 }}件)
@@ -1076,18 +1086,18 @@
             </template>
 
             <div class="notices-view-container">
-              <!-- 顶部渠道状态卡片一览 -->
-              <div class="channel-status-cards">
+              <!-- 顶部渠道状态卡片一览 (权限隔离：仅系统超级管理员 sys_admin 独占可见和配置) -->
+              <div v-if="hasRole('sys_admin')" class="channel-status-cards">
                 <div class="channel-card-header">
                   <div class="title-with-desc">
                     <h3><el-icon><Connection /></el-icon> 多渠道通知触达矩阵（企微 / 钉钉 / 106政务短信 / 邮件 / 站内信）</h3>
-                    <span class="sub-tip">关键合规阻断、时限红线、三会一课通知多维秒级直达</span>
+                    <span class="sub-tip">【超级管理员专属配置】关键合规阻断、时限红线、三会一课通知多维秒级直达接口密钥维护</span>
                   </div>
                   <div class="actions">
-                    <el-button v-if="hasPermission('notice:manage')" type="danger" plain icon="Refresh" @click="triggerSystemComplianceScan">
+                    <el-button type="danger" plain icon="Refresh" @click="triggerSystemComplianceScan">
                       执行全集团合规扫描并推送
                     </el-button>
-                    <el-button v-if="hasPermission('notice:manage')" type="primary" icon="Promotion" @click="openSendNoticeDialog">
+                    <el-button type="primary" icon="Promotion" @click="openSendNoticeDialog">
                       发送新党务通知
                     </el-button>
                   </div>
@@ -1111,14 +1121,13 @@
                         :inactive-value="0" 
                         active-text="启用" 
                         inactive-text="停用"
-                        :disabled="!hasPermission('notice:manage')"
                         inline-prompt
                         @change="handleChannelToggle(ch)" 
                       />
                     </div>
                     <div class="channel-desc">{{ ch.remark }}</div>
                     <div class="channel-actions">
-                      <el-button v-if="hasPermission('notice:manage')" link type="primary" size="small" icon="Setting" @click="openChannelConfig(ch)">
+                      <el-button link type="primary" size="small" icon="Setting" @click="openChannelConfig(ch)">
                         参数配置
                       </el-button>
                       <el-button link type="success" size="small" icon="Promotion" @click="testChannelPing(ch)">
@@ -1126,6 +1135,18 @@
                       </el-button>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <!-- 党总支管理员支持发起新党务通知 -->
+              <div v-else-if="hasPermission('notice:send')" class="channel-status-cards" style="padding: 12px 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-size: 13px; color: #606266;">
+                    <el-icon color="#c21c1d"><InfoFilled /></el-icon> 党总支通知发送中枢：支持向三家子公司党支部全体党员及发展对象分发通知与指令。
+                  </span>
+                  <el-button type="primary" size="small" icon="Promotion" @click="openSendNoticeDialog">
+                    发送新党务通知
+                  </el-button>
                 </div>
               </div>
 
@@ -1602,7 +1623,13 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="所属党支部*" required>
-              <el-select v-model="newMemberForm.branchName" placeholder="请选择党支部" style="width: 100%">
+              <!-- 若为支部管理员，强锁本支部且禁用修改，严禁给其他支部录入 -->
+              <el-select 
+                v-model="newMemberForm.branchName" 
+                :disabled="isBranchAdmin"
+                placeholder="请选择党支部" 
+                style="width: 100%"
+              >
                 <el-option label="红数信息支部" value="中共红河红数信息技术服务有限公司支部委员会" />
                 <el-option label="幂次科技支部" value="中共云南幂次科技有限公司支部委员会" />
                 <el-option label="链达科技支部" value="中共红河链达科技有限公司支部委员会" />
@@ -1804,7 +1831,12 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="所属党支部*" required>
-              <el-select v-model="newMeetingForm.branchName" style="width: 100%">
+              <!-- 若为支部管理员，强锁本支部且禁用修改，严禁给其他支部代录组织生活 -->
+              <el-select 
+                v-model="newMeetingForm.branchName" 
+                :disabled="isBranchAdmin"
+                style="width: 100%"
+              >
                 <el-option label="红数信息支部 (云服务/安全)" value="中共红河红数信息技术服务有限公司支部委员会" />
                 <el-option label="幂次科技支部 (软件开发/数字化)" value="中共云南幂次科技有限公司支部委员会" />
                 <el-option label="链达科技支部 (城市综合体运营)" value="中共红河链达科技有限公司支部委员会" />
@@ -2133,7 +2165,13 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="所属党组织*" required>
-              <el-select v-model="newHonorForm.orgName" placeholder="所属党组织" style="width: 100%">
+              <!-- 若为支部管理员，强锁本支部且禁用修改 -->
+              <el-select 
+                v-model="newHonorForm.orgName" 
+                :disabled="isBranchAdmin"
+                placeholder="所属党组织" 
+                style="width: 100%"
+              >
                 <el-option label="红数信息支部" value="中共红河红数信息技术服务有限公司支部委员会" />
                 <el-option label="幂次科技支部" value="中共云南幂次科技有限公司支部委员会" />
                 <el-option label="链达科技支部" value="中共红河链达科技有限公司支部委员会" />
@@ -2402,35 +2440,48 @@ import {
 // 基础模式、大屏状态与登录态
 const isBigScreenMode = ref(false)
 const isLoggedIn = ref(true) // 默认已登录状态，支持退出到登录页与一键切换
-const currentUser = ref(MOCK_SYS_USERS[1]) // 默认杨海 (党总支组织员)
-const currentRole = ref('committee_organizer')
+const currentUser = ref(MOCK_SYS_USERS[1]) // 默认杨海 (党总支管理员)
+const currentRole = ref('general_branch_admin')
 const activeTab = ref('workbench')
 
 // ==========================================
-// RBAC 严格权限控制体系核心函数
+// 四级精简权限体系核心规则与鉴权函数
+// 1. 超级管理员 (sys_admin): 唯一独享用户管理、通知渠道配置，拥有全平台所有权限
+// 2. 党总支管理员 (general_branch_admin): 拥有总支及直管三支部全部业务权限，独享第20/25步审批批复、跨支部指标调控、一人一档归档、模板导入
+// 3. 支部管理员 (branch_admin_hs / branch_admin_mc / branch_admin_ld): 仅限本支部业务增删改查（表单强锁本支部，不可审批第20/25步）
+// 4. 普通党员 (party_member): 仅限调阅本人档案与个人通知
 // ==========================================
+const isBranchAdmin = computed(() => {
+  return currentRole.value.startsWith('branch_admin')
+})
+
+const currentBranchNameLocked = computed(() => {
+  if (currentRole.value === 'branch_admin_hs') return '中共红河红数信息技术服务有限公司支部委员会'
+  if (currentRole.value === 'branch_admin_mc') return '中共云南幂次科技有限公司支部委员会'
+  if (currentRole.value === 'branch_admin_ld') return '中共红河链达科技有限公司支部委员会'
+  return currentUser.value?.orgName || '中共红河数据产业集团有限公司总支部委员会'
+})
+
 const currentRoleDisplayName = computed(() => {
   const map = {
-    committee_organizer: '党总支组织员 (集团组织科)',
-    branch_secretary: '支部书记 (红数信息支部)',
-    branch_secretary_mc: '支部书记 (云南幂次科技支部)',
-    branch_secretary_ld: '支部书记 (红河链达科技支部)',
-    discipline_inspector: '党总支纪检委员 (纪检风控部)',
-    sys_admin: '系统超级管理员',
-    member_self: '在册党员 / 发展成员本人'
+    sys_admin: '超级管理员 (系统全权限)',
+    general_branch_admin: '党总支管理员 (总支及三支部业务全权限)',
+    branch_admin_hs: '支部管理员 (红数信息支部)',
+    branch_admin_mc: '支部管理员 (云南幂次科技支部)',
+    branch_admin_ld: '支部管理员 (红河链达科技支部)',
+    party_member: '普通党员 / 发展成员本人'
   }
   return map[currentRole.value] || '党务在册人员'
 })
 
 const currentRoleTagType = computed(() => {
   const map = {
-    committee_organizer: 'danger',
-    branch_secretary: 'warning',
-    branch_secretary_mc: 'warning',
-    branch_secretary_ld: 'warning',
-    discipline_inspector: 'primary',
     sys_admin: 'info',
-    member_self: ''
+    general_branch_admin: 'danger',
+    branch_admin_hs: 'warning',
+    branch_admin_mc: 'warning',
+    branch_admin_ld: 'warning',
+    party_member: ''
   }
   return map[currentRole.value] || 'info'
 })
@@ -2440,44 +2491,37 @@ const currentRoleTagType = computed(() => {
  */
 function hasPermission(perm) {
   if (!perm) return true
-  // 超级管理员拥有全量系统与安全维护权限
+
+  // 1. 超级管理员拥有全平台所有权限 (唯一独享用户管理、通知渠道配置)
   if (currentRole.value === 'sys_admin') {
-    return ['user:manage', 'role:manage', 'notice:manage', 'template:upload', 'template:reset'].includes(perm)
+    return true
   }
 
-  // 党总支组织员拥有党务全局最高推进、审核与规程管理权限
-  if (currentRole.value === 'committee_organizer') {
+  // 2. 党总支管理员：拥有总支及三支部全部党务业务权限 (不含用户管理与通知渠道底层配置)
+  if (currentRole.value === 'general_branch_admin') {
     return [
       'workbench:view', 'workbench:create_applicant', 'workbench:advance', 'workbench:audit', 
       'workbench:transfer', 'workbench:export', 'workbench:block_override',
       'roster:view', 'roster:create', 'roster:edit', 'roster:import', 'roster:export',
-      'meeting:view', 'meeting:create', 'meeting:edit', 'meeting:tags_manage', 'meeting:export',
+      'meeting:view', 'meeting:create', 'meeting:edit', 'meeting:delete', 'meeting:tags_manage', 'meeting:export',
       'honor:view', 'honor:create', 'honor:edit', 'honor:delete', 'honor:export',
-      'template:view', 'template:upload', 'template:reset', 'cockpit:view', 'notice:view', 'notice:manage'
+      'template:view', 'template:upload', 'template:reset', 'cockpit:view', 'notice:view', 'notice:send'
     ].includes(perm)
   }
 
-  // 支部书记拥有本支部日常发展规程、三会一课及名册维护权限
-  if (currentRole.value.startsWith('branch_secretary')) {
+  // 3. 支部管理员：拥有本支部业务增删改查权限 (仅限本支部数据与表单)
+  if (isBranchAdmin.value) {
     return [
       'workbench:view', 'workbench:create_applicant', 'workbench:advance', 'workbench:export',
-      'roster:view', 'roster:create', 'roster:edit', 'roster:export',
-      'meeting:view', 'meeting:create', 'meeting:edit', 'meeting:export',
-      'honor:view', 'template:view', 'cockpit:view', 'notice:view'
-    ].includes(perm)
-  }
-
-  // 纪检监察委员专责廉洁审查（一票否决权）及违纪诫勉台账
-  if (currentRole.value === 'discipline_inspector') {
-    return [
-      'workbench:view', 'workbench:discipline_audit',
+      'roster:view', 'roster:create', 'roster:edit', 'roster:import', 'roster:export',
+      'meeting:view', 'meeting:create', 'meeting:edit', 'meeting:delete', 'meeting:export',
       'honor:view', 'honor:create', 'honor:edit', 'honor:delete', 'honor:export',
-      'cockpit:view', 'notice:view'
+      'template:view', 'cockpit:view', 'notice:view'
     ].includes(perm)
   }
 
-  // 普通在册党员/发展成员本人
-  if (currentRole.value === 'member_self') {
+  // 4. 普通党员：仅限自我查阅
+  if (currentRole.value === 'party_member') {
     return ['workbench:view', 'notice:view', 'cockpit:view'].includes(perm)
   }
 
@@ -2511,8 +2555,6 @@ function handleLoginSuccess(payload) {
   // 登录后根据角色智能跳转其首要权限工作台
   if (currentRole.value === 'sys_admin') {
     activeTab.value = 'users'
-  } else if (currentRole.value === 'discipline_inspector') {
-    activeTab.value = 'honors'
   } else {
     activeTab.value = 'workbench'
   }
@@ -2628,12 +2670,12 @@ const searchKeyword = ref('')
 
 const filteredMembers = computed(() => {
   return MOCK_MEMBERS.filter(m => {
-    // 数据范围限制：若为某子公司党支部书记，仅能查阅本支部的发展成员
-    if (currentRole.value === 'branch_secretary' && !m.branchName.includes('红数')) return false
-    if (currentRole.value === 'branch_secretary_mc' && !m.branchName.includes('幂次')) return false
-    if (currentRole.value === 'branch_secretary_ld' && !m.branchName.includes('链达')) return false
-    // 若为党员本人，仅能查看自己的成长全景
-    if (currentRole.value === 'member_self' && m.workNo !== (currentUser.value?.workNo || 'HH-HS-012')) return false
+    // 四级数据范围限制：支部管理员仅能查阅本支部发展成员
+    if (currentRole.value === 'branch_admin_hs' && !m.branchName.includes('红数')) return false
+    if (currentRole.value === 'branch_admin_mc' && !m.branchName.includes('幂次')) return false
+    if (currentRole.value === 'branch_admin_ld' && !m.branchName.includes('链达')) return false
+    // 普通党员仅能查看本人的成长档案
+    if (currentRole.value === 'party_member' && m.workNo !== (currentUser.value?.workNo || 'HH-HS-012')) return false
 
     if (selectedFilterStage.value && m.currentStageId !== selectedFilterStage.value) return false
     if (filterBranch.value && m.branchName !== filterBranch.value) return false
@@ -2677,11 +2719,11 @@ const rosterStatusFilter = ref('')
 
 const filteredRosterList = computed(() => {
   return rosterList.value.filter(m => {
-    // 数据范围限制：子公司支部书记仅查看本支部在册党员
-    if (currentRole.value === 'branch_secretary' && !m.branchName.includes('红数')) return false
-    if (currentRole.value === 'branch_secretary_mc' && !m.branchName.includes('幂次')) return false
-    if (currentRole.value === 'branch_secretary_ld' && !m.branchName.includes('链达')) return false
-    if (currentRole.value === 'member_self' && m.workNo !== (currentUser.value?.workNo || 'HH-HS-012')) return false
+    // 四级数据范围限制：支部管理员仅查看本支部在册党员
+    if (currentRole.value === 'branch_admin_hs' && !m.branchName.includes('红数')) return false
+    if (currentRole.value === 'branch_admin_mc' && !m.branchName.includes('幂次')) return false
+    if (currentRole.value === 'branch_admin_ld' && !m.branchName.includes('链达')) return false
+    if (currentRole.value === 'party_member' && m.workNo !== (currentUser.value?.workNo || 'HH-HS-012')) return false
 
     if (rosterBranchFilter.value && m.branchName !== rosterBranchFilter.value) return false
     if (rosterStatusFilter.value && m.partyStatus !== rosterStatusFilter.value) return false
@@ -2766,13 +2808,14 @@ const newMemberForm = ref({
 function openAddMemberDialog() {
   isEditingMember.value = false
   editingMemberId.value = null
+  const defaultBranch = isBranchAdmin.value ? currentBranchNameLocked.value : '中共红河红数信息技术服务有限公司支部委员会'
   newMemberForm.value = {
     name: '',
     workNo: 'HH-' + (Math.floor(Math.random() * 890 + 100)),
     idCard: '',
     gender: '男',
     age: 30,
-    branchName: '中共红河红数信息技术服务有限公司支部委员会',
+    branchName: defaultBranch,
     deptName: '',
     jobTitle: '',
     partyStatus: 1,
@@ -3038,6 +3081,11 @@ const availableTopicTags = ref([...AVAILABLE_TOPIC_TAGS])
 
 const filteredMeetingsList = computed(() => {
   return meetingsList.value.filter(m => {
+    // 四级数据范围限制：支部管理员仅查看本支部三会一课台账
+    if (currentRole.value === 'branch_admin_hs' && !m.branchName.includes('红数')) return false
+    if (currentRole.value === 'branch_admin_mc' && !m.branchName.includes('幂次')) return false
+    if (currentRole.value === 'branch_admin_ld' && !m.branchName.includes('链达')) return false
+
     // 支部筛选 (单选/多选兼容)
     if (meetingBranchFilter.value && meetingBranchFilter.value.length > 0) {
       if (!meetingBranchFilter.value.includes(m.branchName)) return false
@@ -3142,13 +3190,14 @@ const newMeetingForm = ref({
 function openAddMeetingDialog() {
   isEditingMeeting.value = false
   editingMeetingId.value = null
+  const defaultBranch = isBranchAdmin.value ? currentBranchNameLocked.value : '中共红河红数信息技术服务有限公司支部委员会'
   newMeetingForm.value = {
-    branchName: '中共红河红数信息技术服务有限公司支部委员会',
+    branchName: defaultBranch,
     meetingType: 1,
     title: '',
     date: new Date().toISOString().slice(0, 10),
     place: '党员活动室',
-    moderator: '李卫民 (支部书记)',
+    moderator: currentUser.value?.realName ? `${currentUser.value.realName} (支部书记)` : '李卫民 (支部书记)',
     speaker: '',
     expectedCount: 16,
     actualCount: 16,
@@ -3160,6 +3209,23 @@ function openAddMeetingDialog() {
     relatedMember: ''
   }
   addMeetingDialogVisible.value = true
+}
+
+function deleteMeetingRecord(row) {
+  // 权限检查：支部管理员仅能删除本支部的会议记录
+  if (isBranchAdmin.value && row.branchName !== currentBranchNameLocked.value) {
+    ElMessageBox.alert('您无权删除其他党支部的组织生活记录！', '跨支部越权拦截', { type: 'error' })
+    return
+  }
+
+  ElMessageBox.confirm(
+    `确定要永久删除本次【${row.meetingTypeName}】记录《${row.title}》（召开日期：${row.date}）吗？删除后相关考勤与纪要凭证将被移除。`,
+    '删除组织生活记录确认',
+    { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
+  ).then(() => {
+    meetingsList.value = meetingsList.value.filter(m => m.id !== row.id)
+    ElMessage.success(`会议记录《${row.title}》已成功删除！`)
+  }).catch(() => {})
 }
 
 function openEditMeetingDialog(row) {
@@ -3498,11 +3564,12 @@ const newHonorForm = ref({
 function openAddHonorDialog() {
   isEditingHonor.value = false
   editingHonorId.value = null
+  const defaultOrg = isBranchAdmin.value ? currentBranchNameLocked.value : '中共红河数据产业集团有限公司总支部委员会'
   newHonorForm.value = {
     category: 2,
     recordType: 1,
-    targetName: '中共云南幂次科技有限公司支部委员会',
-    orgName: '中共云南幂次科技有限公司支部委员会',
+    targetName: defaultOrg,
+    orgName: defaultOrg,
     title: '',
     level: '集团级',
     grantOrg: '中共红河数据产业集团有限公司总支部委员会',
@@ -4044,33 +4111,23 @@ function quickProgressStep(member) {
 }
 
 function handleAdvanceStep() {
-  // 1. 角色推进权限拦截：只有总支组织员和支部书记有权推进业务流转
+  // 1. 角色推进权限拦截：只有总支管理员和支部管理员有权推进业务流转
   if (!hasPermission('workbench:advance') && !hasPermission('workbench:audit')) {
-    ElMessageBox.alert('您当前所属角色无权直接审批或推进党员发展规程！', '权限不足', { type: 'warning' })
+    ElMessageBox.alert('您当前所属角色为只读模式，无权审批或推进党员发展规程！', '权限不足', { type: 'warning' })
     return
   }
 
-  // 2. 党总支专属审批步骤越权防护（第20步接收审批、第25步转正审批仅限总支组织员）
-  if ((selectedStepInDrawer.value === 20 || selectedStepInDrawer.value === 25) && currentRole.value !== 'committee_organizer') {
+  // 2. 党总支专属审批步骤越权防护（第20步接收审批、第25步转正审批仅限党总支管理员/超管）
+  if ((selectedStepInDrawer.value === 20 || selectedStepInDrawer.value === 25) && isBranchAdmin.value) {
     ElMessageBox.alert(
-      `第 ${selectedStepInDrawer.value} 步依据《细则》须由【中共红河数据产业集团有限公司总支部委员会】集体审批，基层党支部无权直接批复，请等待党总支审批下达！`,
-      '审批权限拦截',
+      `第 ${selectedStepInDrawer.value} 步依据《中国共产党发展党员工作细则》必须由【中共红河数据产业集团有限公司总支部委员会】集体研究审批，子公司党支部无权直接批复，请等待党总支审批下达！`,
+      '党总支审批权限拦截',
       { type: 'warning' }
     )
     return
   }
 
-  // 3. 纪检会签一票否决权（第13步）
-  if (selectedStepInDrawer.value === 13 && currentRole.value !== 'discipline_inspector' && currentRole.value !== 'committee_organizer') {
-    ElMessageBox.alert(
-      '第 13 步《政治审查与廉洁从业把关》须由集团纪委/总支纪检委员进行廉洁从业审查并签署意见（一票否决权），党支部无权自行代审通过！',
-      '纪检把关权限拦截',
-      { type: 'warning' }
-    )
-    return
-  }
-
-  // 4. 积极分子未满 365 天系统合规硬阻断
+  // 3. 积极分子未满 365 天系统合规硬阻断
   if (currentMember.value.id === 101 && currentMember.value.currentStepId === 7) {
     ElMessageBox.alert(
       '【系统硬阻断】张强同志作为入党积极分子考察期仅 290 天（未满法定 365 天）。依据《中国共产党发展党员工作细则》第十三条，严禁在考察期不足一年时提前确定为发展对象！如遇巡视巡察将判定为违规入党。',

@@ -1298,76 +1298,64 @@ export const MOCK_HONOR_PUNISHMENT_LIST = [
 ];
 
 // ==============================================================================
-// 7. 用户与权限体系 MOCK 数据 (RBAC 角色权限与在册党务账号)
+// 7. 用户与四级权限体系 MOCK 数据 (超级管理员、党总支管理员、支部管理员、普通党员)
 // ==============================================================================
 export const MOCK_SYS_ROLES = [
   {
     id: 1,
-    roleCode: 'COMMITTEE_ORGANIZER',
-    roleName: '党总支组织员 (集团组织科)',
-    description: '负责集团党总支全盘党务规程核验、预审与备案批复、跨支部指标调控与一人一档综合管理',
-    userCount: 2,
+    roleCode: 'SYS_ADMIN',
+    roleName: '超级管理员',
+    description: '全平台系统与安全超级管理员，唯一独享【用户与权限管理】及【多渠道通知服务配置】，拥有全平台所有模块增删改查权限',
+    userCount: 1,
     status: 1,
     permissions: [
-      'workbench:view', 'workbench:audit', 'workbench:transfer', 'workbench:block_override',
-      'roster:view', 'roster:edit', 'roster:import', 'roster:export',
-      'meeting:view', 'meeting:edit', 'meeting:audit',
-      'honor:view', 'honor:edit',
-      'template:view', 'template:upload', 'template:reset',
-      'cockpit:view', 'user:manage', 'notice:manage'
+      'user:manage', 'role:manage', 'notice:channel_manage', 'notice:send',
+      'workbench:view', 'workbench:create_applicant', 'workbench:advance', 'workbench:audit', 'workbench:transfer', 'workbench:export', 'workbench:block_override',
+      'roster:view', 'roster:create', 'roster:edit', 'roster:import', 'roster:export',
+      'meeting:view', 'meeting:create', 'meeting:edit', 'meeting:delete', 'meeting:tags_manage', 'meeting:export',
+      'honor:view', 'honor:create', 'honor:edit', 'honor:delete', 'honor:export',
+      'template:view', 'template:upload', 'template:reset', 'cockpit:view', 'notice:view'
     ]
   },
   {
     id: 2,
-    roleCode: 'BRANCH_SECRETARY',
-    roleName: '党支部书记 / 支部组织委员',
-    description: '负责子公司支部发展规程发起推进、召开三会一课、推优写实、思想汇报审阅与日常档案维护',
-    userCount: 4,
+    roleCode: 'GENERAL_BRANCH_ADMIN',
+    roleName: '党总支管理员',
+    description: '集团党总支党务中枢与组织员，拥有党总支本级及直管三家支部的全部党务业务权限，独享第20/25步党总支审批权、全集团指标调控及模板导入',
+    userCount: 2,
     status: 1,
     permissions: [
-      'workbench:view', 'workbench:audit', 'workbench:transfer',
-      'roster:view', 'roster:edit',
-      'meeting:view', 'meeting:edit',
-      'honor:view',
-      'template:view',
-      'cockpit:view',
-      'notice:view'
+      'workbench:view', 'workbench:create_applicant', 'workbench:advance', 'workbench:audit', 'workbench:transfer', 'workbench:export', 'workbench:block_override',
+      'roster:view', 'roster:create', 'roster:edit', 'roster:import', 'roster:export',
+      'meeting:view', 'meeting:create', 'meeting:edit', 'meeting:delete', 'meeting:tags_manage', 'meeting:export',
+      'honor:view', 'honor:create', 'honor:edit', 'honor:delete', 'honor:export',
+      'template:view', 'template:upload', 'template:reset', 'cockpit:view', 'notice:view', 'notice:send'
     ]
   },
   {
     id: 3,
-    roleCode: 'DISCIPLINE_INSPECTOR',
-    roleName: '党总支纪检委员 (纪检风控部)',
-    description: '行使政治审查中廉洁从业审核与一票否决权、监督党内纪律处分诫勉台账',
-    userCount: 1,
+    roleCode: 'BRANCH_ADMIN',
+    roleName: '支部管理员',
+    description: '子公司党支部书记及支委，严格锁定本支部业务数据（红数/幂次/链达独立），负责本支部流程发起推进、名册维护、组织生活记录与删除',
+    userCount: 3,
     status: 1,
     permissions: [
-      'workbench:view', 'workbench:discipline_audit',
-      'honor:view', 'honor:edit',
-      'cockpit:view',
-      'notice:view'
+      'workbench:view', 'workbench:create_applicant', 'workbench:advance', 'workbench:export',
+      'roster:view', 'roster:create', 'roster:edit', 'roster:import', 'roster:export',
+      'meeting:view', 'meeting:create', 'meeting:edit', 'meeting:delete', 'meeting:export',
+      'honor:view', 'honor:create', 'honor:edit', 'honor:delete', 'honor:export',
+      'template:view', 'cockpit:view', 'notice:view'
     ]
   },
   {
     id: 4,
-    roleCode: 'SYS_ADMIN',
-    roleName: '系统超级管理员',
-    description: '管理全局用户账号、分配角色与权限、维护通知渠道与安全审计配置',
-    userCount: 1,
-    status: 1,
-    permissions: [
-      'user:manage', 'role:manage', 'notice:manage', 'log:view', 'template:upload'
-    ]
-  },
-  {
-    id: 5,
     roleCode: 'PARTY_MEMBER',
-    roleName: '普通在册党员 / 发展成员本人',
-    description: '查看个人成长全景档案、在线查收会议通知与合规催办提醒、填报思想汇报与转正申请',
+    roleName: '普通在册党员 / 发展成员',
+    description: '普通在册党员及入党申请人、积极分子、发展对象、预备党员，仅限查看个人成长全景档案与个人待办通知',
     userCount: 28,
     status: 1,
     permissions: [
-      'member:self_view', 'notice:view', 'file:upload_self'
+      'workbench:view', 'member:self_view', 'notice:view', 'cockpit:view'
     ]
   }
 ];
@@ -1383,8 +1371,9 @@ export const MOCK_SYS_USERS = [
     orgId: 1,
     orgName: '中共红河数据产业集团有限公司总支部委员会',
     roleCode: 'SYS_ADMIN',
-    roleName: '系统超级管理员',
-    roleIds: [4],
+    roleName: '超级管理员',
+    roleIds: [1],
+    partyPost: '系统超级管理员',
     status: 1,
     lastLoginTime: '2026-10-09 10:28:15',
     createdAt: '2025-01-01'
@@ -1398,9 +1387,9 @@ export const MOCK_SYS_USERS = [
     email: 'yanghai@honghe-data.com',
     orgId: 1,
     orgName: '中共红河数据产业集团有限公司总支部委员会',
-    roleCode: 'COMMITTEE_ORGANIZER',
-    roleName: '党总支组织员 (集团组织科)',
-    roleIds: [1],
+    roleCode: 'GENERAL_BRANCH_ADMIN',
+    roleName: '党总支管理员',
+    roleIds: [2],
     partyPost: '党总支组织委员 / 综合管理部部长',
     status: 1,
     lastLoginTime: '2026-10-09 09:15:42',
@@ -1408,23 +1397,6 @@ export const MOCK_SYS_USERS = [
   },
   {
     id: 3,
-    username: 'zhouguoping',
-    realName: '周国平',
-    workNo: 'HH-JT-003',
-    phone: '13987301003',
-    email: 'zhouguoping@honghe-data.com',
-    orgId: 1,
-    orgName: '中共红河数据产业集团有限公司总支部委员会',
-    roleCode: 'DISCIPLINE_INSPECTOR',
-    roleName: '党总支纪检委员 (纪检风控部)',
-    roleIds: [3],
-    partyPost: '党总支纪检委员 / 纪检风控部部长',
-    status: 1,
-    lastLoginTime: '2026-10-08 16:40:11',
-    createdAt: '2025-01-01'
-  },
-  {
-    id: 4,
     username: 'liweimin',
     realName: '李卫民',
     workNo: 'HH-HS-001',
@@ -1432,16 +1404,16 @@ export const MOCK_SYS_USERS = [
     email: 'liweimin@hongshu-info.com',
     orgId: 2,
     orgName: '中共红河红数信息技术服务有限公司支部委员会',
-    roleCode: 'BRANCH_SECRETARY',
-    roleName: '党支部书记 / 支部组织委员',
-    roleIds: [2],
+    roleCode: 'BRANCH_ADMIN',
+    roleName: '支部管理员 (红数信息)',
+    roleIds: [3],
     partyPost: '红数信息党支部书记 / 总经理',
     status: 1,
     lastLoginTime: '2026-10-09 08:50:33',
     createdAt: '2025-01-01'
   },
   {
-    id: 5,
+    id: 4,
     username: 'liujianhua',
     realName: '刘建华',
     workNo: 'HH-MC-001',
@@ -1449,16 +1421,16 @@ export const MOCK_SYS_USERS = [
     email: 'liujianhua@mici-tech.com',
     orgId: 3,
     orgName: '中共云南幂次科技有限公司支部委员会',
-    roleCode: 'BRANCH_SECRETARY',
-    roleName: '党支部书记 / 支部组织委员',
-    roleIds: [2],
+    roleCode: 'BRANCH_ADMIN',
+    roleName: '支部管理员 (幂次科技)',
+    roleIds: [3],
     partyPost: '幂次科技党支部书记 / 执行董事',
     status: 1,
     lastLoginTime: '2026-10-08 17:10:05',
     createdAt: '2025-01-01'
   },
   {
-    id: 6,
+    id: 5,
     username: 'chenming',
     realName: '陈明',
     workNo: 'HH-LD-001',
@@ -1466,16 +1438,16 @@ export const MOCK_SYS_USERS = [
     email: 'chenming@lianda-tech.com',
     orgId: 4,
     orgName: '中共红河链达科技有限公司支部委员会',
-    roleCode: 'BRANCH_SECRETARY',
-    roleName: '党支部书记 / 支部组织委员',
-    roleIds: [2],
+    roleCode: 'BRANCH_ADMIN',
+    roleName: '支部管理员 (链达科技)',
+    roleIds: [3],
     partyPost: '链达科技党支部书记 / 总经理',
     status: 1,
     lastLoginTime: '2026-10-07 14:22:19',
     createdAt: '2025-01-01'
   },
   {
-    id: 7,
+    id: 6,
     username: 'zhangqiang',
     realName: '张强',
     workNo: 'HH-HS-012',
@@ -1485,14 +1457,14 @@ export const MOCK_SYS_USERS = [
     orgName: '中共红河红数信息技术服务有限公司支部委员会',
     roleCode: 'PARTY_MEMBER',
     roleName: '普通在册党员 / 发展成员本人',
-    roleIds: [5],
+    roleIds: [4],
     partyPost: '积极分子 (第7步)',
     status: 1,
     lastLoginTime: '2026-10-09 11:05:00',
     createdAt: '2025-04-10'
   },
   {
-    id: 8,
+    id: 7,
     username: 'linyuhan',
     realName: '林雨涵',
     workNo: 'HH-MC-035',
@@ -1502,7 +1474,7 @@ export const MOCK_SYS_USERS = [
     orgName: '中共云南幂次科技有限公司支部委员会',
     roleCode: 'PARTY_MEMBER',
     roleName: '普通在册党员 / 发展成员本人',
-    roleIds: [5],
+    roleIds: [4],
     partyPost: '发展对象 (第13步)',
     status: 1,
     lastLoginTime: '2026-10-08 15:30:45',

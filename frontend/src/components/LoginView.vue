@@ -182,51 +182,60 @@ const loginForm = ref({
   password: ''
 })
 
-// 预设体验角色列表
+// 预设四级体验角色列表
 const QUICK_ROLES = [
+  {
+    username: 'admin',
+    realName: '系统管理员',
+    workNo: 'SYS-ADMIN-01',
+    roleCode: 'sys_admin',
+    roleName: '超级管理员',
+    duty: '【最高权限】唯一独享用户权限管理、多渠道通知密钥配置，拥有全平台所有权限',
+    tagType: 'info'
+  },
   {
     username: 'yanghai',
     realName: '杨海',
     workNo: 'HH-JT-005',
-    roleCode: 'committee_organizer',
-    roleName: '党总支组织员',
-    duty: '总支规程审查把关 / 25步备案批复 / 指标调控 / 模板管理',
+    roleCode: 'general_branch_admin',
+    roleName: '党总支管理员',
+    duty: '【总支+直管三支部全部业务】第20/25步审批批复、跨支部指标调控、一人一档归档、模板导入',
     tagType: 'danger'
   },
   {
     username: 'liweimin',
     realName: '李卫民',
     workNo: 'HH-HS-001',
-    roleCode: 'branch_secretary',
-    roleName: '支部书记 (红数信息)',
-    duty: '发起本支部流程 / 召开三会一课 / 推优写实 / 维护名册',
+    roleCode: 'branch_admin_hs',
+    roleName: '红数支部管理员',
+    duty: '【严格锁定红数支部】本支部党员发展、本支部名册维护、本支部三会一课记录与删除',
     tagType: 'warning'
   },
   {
-    username: 'zhouguoping',
-    realName: '周国平',
-    workNo: 'HH-JT-003',
-    roleCode: 'discipline_inspector',
-    roleName: '党总支纪检委员',
-    duty: '政治审查廉洁把关 (一票否决权) / 违纪处分台账监管',
-    tagType: 'primary'
+    username: 'liujianhua',
+    realName: '刘建华',
+    workNo: 'HH-MC-001',
+    roleCode: 'branch_admin_mc',
+    roleName: '幂次支部管理员',
+    duty: '【严格锁定幂次科技】本支部党员发展、本支部名册维护、本支部三会一课记录与删除',
+    tagType: 'warning'
   },
   {
-    username: 'admin',
-    realName: '系统管理员',
-    workNo: 'SYS-ADMIN-01',
-    roleCode: 'sys_admin',
-    roleName: '系统超级管理员',
-    duty: '党务用户开通 / 角色权限指派 / 多渠道通知服务配置',
-    tagType: 'info'
+    username: 'chenming',
+    realName: '陈明',
+    workNo: 'HH-LD-001',
+    roleCode: 'branch_admin_ld',
+    roleName: '链达支部管理员',
+    duty: '【严格锁定链达科技】本支部党员发展、本支部名册维护、本支部三会一课记录与删除',
+    tagType: 'warning'
   },
   {
     username: 'zhangqiang',
     realName: '张强',
     workNo: 'HH-HS-012',
-    roleCode: 'member_self',
-    roleName: '发展成员本人',
-    duty: '在册积极分子 (第7步) / 个人档案查阅 / 思想汇报填报',
+    roleCode: 'party_member',
+    roleName: '普通党员 (积极分子)',
+    duty: '【严格仅限个人档案】仅查阅个人一人一档成长进度及个人待办通知，无管理与审批权限',
     tagType: ''
   }
 ]
@@ -249,20 +258,24 @@ function handleAccountLogin() {
 
     if (found) {
       if (found.status === 0) {
-        ElMessage.error('该党务账号当前已被系统停用禁用，请联系党总支组织员！')
+        ElMessage.error('该党务账号当前已被系统停用禁用，请联系系统管理员！')
         return
       }
 
-      // 匹配系统对应的角色 code
-      const roleMap = {
-        COMMITTEE_ORGANIZER: 'committee_organizer',
-        BRANCH_SECRETARY: 'branch_secretary',
-        DISCIPLINE_INSPECTOR: 'discipline_inspector',
-        SYS_ADMIN: 'sys_admin',
-        PARTY_MEMBER: 'member_self'
+      // 映射到四级系统角色编码
+      let currentRole = 'party_member'
+      if (found.roleCode === 'SYS_ADMIN') {
+        currentRole = 'sys_admin'
+      } else if (found.roleCode === 'GENERAL_BRANCH_ADMIN') {
+        currentRole = 'general_branch_admin'
+      } else if (found.roleCode === 'BRANCH_ADMIN') {
+        if (found.orgName.includes('红数')) currentRole = 'branch_admin_hs'
+        else if (found.orgName.includes('幂次')) currentRole = 'branch_admin_mc'
+        else currentRole = 'branch_admin_ld'
+      } else {
+        currentRole = 'party_member'
       }
 
-      const currentRole = roleMap[found.roleCode] || 'committee_organizer'
       ElMessage.success(`欢迎进入系统，${found.realName} 同志！`)
       emit('login-success', { user: found, role: currentRole })
     } else {
@@ -273,12 +286,12 @@ function handleAccountLogin() {
         realName: loginForm.value.username,
         workNo: 'HH-TEMP-001',
         orgName: '中共红河数据产业集团有限公司总支部委员会',
-        roleCode: 'COMMITTEE_ORGANIZER',
-        roleName: '党总支组织员 (集团组织科)',
+        roleCode: 'GENERAL_BRANCH_ADMIN',
+        roleName: '党总支管理员',
         status: 1
       }
       ElMessage.success(`欢迎进入智慧党建平台，${fallbackUser.realName}！`)
-      emit('login-success', { user: fallbackUser, role: 'committee_organizer' })
+      emit('login-success', { user: fallbackUser, role: 'general_branch_admin' })
     }
   }, 500)
 }

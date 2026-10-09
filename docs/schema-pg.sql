@@ -386,37 +386,34 @@ INSERT INTO party_doc_template (step_code, template_code, template_name, is_cust
 (24, 'TPL_STEP24', '支部大会转正决议及票决汇总表', FALSE, '24_支部大会转正决议表.docx', '/templates/default/24_congress_official.docx', 'v1.0', '["validVoters", "actualVoters", "agreeVotes", "resolutionText"]'),
 (25, 'TPL_STEP25', '转正批复与党员人事档案移交清单', FALSE, '25_转正批复及档案移交回执.docx', '/templates/default/25_archive_transfer.docx', 'v1.0', '["docNo", "handoverPerson", "receiverPerson", "archiveList"]');
 
--- 4. 系统用户与角色权限初始化种子数据
+-- 4. 系统用户与四级角色权限初始化种子数据 (超级管理员、党总支管理员、支部管理员、普通党员)
 INSERT INTO sys_role (id, role_code, role_name, description, sort_order, status, permissions) VALUES
-(1, 'COMMITTEE_ORGANIZER', '党总支组织员 (集团组织科)', '负责集团党总支全盘党务规程核验、预审与备案批复、跨支部指标调控与一人一档综合管理', 1, 1, '["workbench:view", "workbench:audit", "workbench:transfer", "workbench:block_override", "roster:view", "roster:edit", "roster:import", "roster:export", "meeting:view", "meeting:edit", "meeting:audit", "honor:view", "honor:edit", "template:view", "template:upload", "template:reset", "cockpit:view", "user:manage", "notice:manage"]'),
-(2, 'BRANCH_SECRETARY', '党支部书记 / 支部组织委员', '负责子公司支部发展规程发起推进、召开三会一课、推优写实、思想汇报审阅与日常档案维护', 2, 1, '["workbench:view", "workbench:audit", "workbench:transfer", "roster:view", "roster:edit", "meeting:view", "meeting:edit", "honor:view", "template:view", "cockpit:view", "notice:view"]'),
-(3, 'DISCIPLINE_INSPECTOR', '党总支纪检委员 (纪检风控部)', '行使政治审查中廉洁从业审核与一票否决权、监督党内纪律处分诫勉台账', 3, 1, '["workbench:view", "workbench:discipline_audit", "honor:view", "honor:edit", "cockpit:view", "notice:view"]'),
-(4, 'SYS_ADMIN', '系统超级管理员', '管理全局用户账号、分配角色与权限、维护通知渠道与安全审计配置', 4, 1, '["user:manage", "role:manage", "notice:manage", "log:view", "template:upload"]'),
-(5, 'PARTY_MEMBER', '普通在册党员 / 发展成员本人', '查看个人成长全景档案、在线查收会议通知与合规催办提醒、填报思想汇报与转正申请', 5, 1, '["member:self_view", "notice:view", "file:upload_self"]');
+(1, 'SYS_ADMIN', '超级管理员', '全平台系统与安全超级管理员，唯一独享用户管理与多渠道通知配置，拥有全平台所有模块增删改查权限', 1, 1, '["user:manage", "role:manage", "notice:channel_manage", "notice:send", "workbench:view", "workbench:create_applicant", "workbench:advance", "workbench:audit", "workbench:transfer", "workbench:export", "workbench:block_override", "roster:view", "roster:create", "roster:edit", "roster:import", "roster:export", "meeting:view", "meeting:create", "meeting:edit", "meeting:delete", "meeting:tags_manage", "meeting:export", "honor:view", "honor:create", "honor:edit", "honor:delete", "honor:export", "template:view", "template:upload", "template:reset", "cockpit:view", "notice:view"]'),
+(2, 'GENERAL_BRANCH_ADMIN', '党总支管理员', '集团党总支党务中枢与组织员，拥有党总支本级及直管三家支部的全部党务业务权限，独享第20/25步审批批复权及指标调控、一人一档归档、模板导入', 2, 1, '["workbench:view", "workbench:create_applicant", "workbench:advance", "workbench:audit", "workbench:transfer", "workbench:export", "workbench:block_override", "roster:view", "roster:create", "roster:edit", "roster:import", "roster:export", "meeting:view", "meeting:create", "meeting:edit", "meeting:delete", "meeting:tags_manage", "meeting:export", "honor:view", "honor:create", "honor:edit", "honor:delete", "honor:export", "template:view", "template:upload", "template:reset", "cockpit:view", "notice:view", "notice:send"]'),
+(3, 'BRANCH_ADMIN', '支部管理员', '子公司党支部书记及支委，严格锁定本支部业务数据，负责本支部流程发起推进、名册维护、组织生活记录与删除', 3, 1, '["workbench:view", "workbench:create_applicant", "workbench:advance", "workbench:export", "roster:view", "roster:create", "roster:edit", "roster:import", "roster:export", "meeting:view", "meeting:create", "meeting:edit", "meeting:delete", "meeting:export", "honor:view", "honor:create", "honor:edit", "honor:delete", "honor:export", "template:view", "cockpit:view", "notice:view"]'),
+(4, 'PARTY_MEMBER', '普通在册党员 / 发展成员本人', '普通在册党员及发展成员，仅限查看个人成长全景档案与个人待办通知', 4, 1, '["workbench:view", "member:self_view", "notice:view", "cockpit:view"]');
 
 ALTER SEQUENCE sys_role_id_seq RESTART WITH 10;
 
 INSERT INTO sys_user (id, username, password, real_name, work_no, phone, email, org_id, org_name, status, last_login_time) VALUES
 (1, 'admin', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '系统管理员', 'SYS-ADMIN-01', '13888880001', 'admin@honghe-data.com', 1, '中共红河数据产业集团有限公司总支部委员会', 1, CURRENT_TIMESTAMP),
 (2, 'yanghai', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '杨海', 'HH-JT-005', '13987301005', 'yanghai@honghe-data.com', 1, '中共红河数据产业集团有限公司总支部委员会', 1, CURRENT_TIMESTAMP),
-(3, 'zhouguoping', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '周国平', 'HH-JT-003', '13987301003', 'zhouguoping@honghe-data.com', 1, '中共红河数据产业集团有限公司总支部委员会', 1, CURRENT_TIMESTAMP),
-(4, 'liweimin', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '李卫民', 'HH-HS-001', '13987302001', 'liweimin@hongshu-info.com', 2, '中共红河红数信息技术服务有限公司支部委员会', 1, CURRENT_TIMESTAMP),
-(5, 'liujianhua', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '刘建华', 'HH-MC-001', '13987303001', 'liujianhua@mici-tech.com', 3, '中共云南幂次科技有限公司支部委员会', 1, CURRENT_TIMESTAMP),
-(6, 'chenming', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '陈明', 'HH-LD-001', '13987304001', 'chenming@lianda-tech.com', 4, '中共红河链达科技有限公司支部委员会', 1, CURRENT_TIMESTAMP),
-(7, 'zhangqiang', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '张强', 'HH-HS-012', '13987302012', 'zhangqiang@hongshu-info.com', 2, '中共红河红数信息技术服务有限公司支部委员会', 1, CURRENT_TIMESTAMP),
-(8, 'linyuhan', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '林雨涵', 'HH-MC-035', '13987303035', 'linyuhan@mici-tech.com', 3, '中共云南幂次科技有限公司支部委员会', 1, CURRENT_TIMESTAMP);
+(3, 'liweimin', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '李卫民', 'HH-HS-001', '13987302001', 'liweimin@hongshu-info.com', 2, '中共红河红数信息技术服务有限公司支部委员会', 1, CURRENT_TIMESTAMP),
+(4, 'liujianhua', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '刘建华', 'HH-MC-001', '13987303001', 'liujianhua@mici-tech.com', 3, '中共云南幂次科技有限公司支部委员会', 1, CURRENT_TIMESTAMP),
+(5, 'chenming', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '陈明', 'HH-LD-001', '13987304001', 'chenming@lianda-tech.com', 4, '中共红河链达科技有限公司支部委员会', 1, CURRENT_TIMESTAMP),
+(6, 'zhangqiang', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '张强', 'HH-HS-012', '13987302012', 'zhangqiang@hongshu-info.com', 2, '中共红河红数信息技术服务有限公司支部委员会', 1, CURRENT_TIMESTAMP),
+(7, 'linyuhan', '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF1234567890', '林雨涵', 'HH-MC-035', '13987303035', 'linyuhan@mici-tech.com', 3, '中共云南幂次科技有限公司支部委员会', 1, CURRENT_TIMESTAMP);
 
 ALTER SEQUENCE sys_user_id_seq RESTART WITH 100;
 
 INSERT INTO sys_user_role (user_id, role_id) VALUES
-(1, 4), -- admin -> SYS_ADMIN
-(2, 1), -- 杨海 -> COMMITTEE_ORGANIZER
-(3, 3), -- 周国平 -> DISCIPLINE_INSPECTOR
-(4, 2), -- 李卫民 -> BRANCH_SECRETARY
-(5, 2), -- 刘建华 -> BRANCH_SECRETARY
-(6, 2), -- 陈明 -> BRANCH_SECRETARY
-(7, 5), -- 张强 -> PARTY_MEMBER
-(8, 5); -- 林雨涵 -> PARTY_MEMBER
+(1, 1), -- admin -> SYS_ADMIN (超级管理员)
+(2, 2), -- 杨海 -> GENERAL_BRANCH_ADMIN (党总支管理员)
+(3, 3), -- 李卫民 -> BRANCH_ADMIN (红数信息支部管理员)
+(4, 3), -- 刘建华 -> BRANCH_ADMIN (幂次科技支部管理员)
+(5, 3), -- 陈明 -> BRANCH_ADMIN (链达科技支部管理员)
+(6, 4), -- 张强 -> PARTY_MEMBER (普通在册党员)
+(7, 4); -- 林雨涵 -> PARTY_MEMBER (普通在册党员)
 
 -- 5. 通知渠道服务配置种子数据
 INSERT INTO sys_notice_channel (id, channel_code, channel_name, channel_type, enabled, config_json, remark) VALUES
