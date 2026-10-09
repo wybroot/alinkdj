@@ -75,28 +75,27 @@
         </div>
       </header>
 
-      <!-- 跑马灯合规警报条 -->
+      <!-- 跑马灯合规警报条（平滑左移、悬停暂停、支持点击直达通知详情） -->
       <div class="compliance-marquee">
         <div class="marquee-tag">
           <el-icon><BellFilled /></el-icon>
           <span>党务合规雷达</span>
         </div>
-        <div class="marquee-content">
-          <div class="alert-item alert-danger">
-            <el-tag size="small" type="danger">硬阻断</el-tag>
-            <span>【张强·红数科技】积极分子考察仅 290 天（未满 365 天），系统强制锁定禁止提前流转至第 9 步发展对象！</span>
-          </div>
-          <div class="alert-item alert-warning">
-            <el-tag size="small" type="warning">临期预警</el-tag>
-            <span>【陈思佳·集团总部】申请书递交已第 22 天，距离“1个月内必须完成支部谈话”红线仅剩 8 天！</span>
-          </div>
-          <div class="alert-item alert-warning">
-            <el-tag size="small" type="warning">转正提醒</el-tag>
-            <span>【李晓辉·链达科技】预备期将在 14 天后满 1 年，已自动下发《转正申请书》催办指令。</span>
-          </div>
-          <div class="alert-item alert-info">
-            <el-tag size="small" type="info">纪检联动</el-tag>
-            <span>【林雨涵·幂次科技】政审函调完成，当前流转至集团纪委出具《廉洁从业意见书》。</span>
+        <div class="marquee-track-container">
+          <div class="marquee-scroller">
+            <!-- 渲染两组数据实现从右往左首尾无缝滚动动画 -->
+            <div 
+              v-for="(item, idx) in radarAlertsDoubled" 
+              :key="idx" 
+              class="alert-item" 
+              :class="item.alertClass"
+              @click="handleRadarAlertClick(item)"
+              :title="`点击查看《${item.title}》通知详情并直达通知中心`"
+            >
+              <el-tag size="small" :type="item.tagType" effect="dark">{{ item.badgeText }}</el-tag>
+              <span class="alert-text">{{ item.summary }}</span>
+              <span class="click-hint">点击直达详情 »</span>
+            </div>
           </div>
         </div>
       </div>
@@ -2252,6 +2251,7 @@
         </div>
       </div>
       <template #footer>
+        <el-button type="warning" plain icon="Bell" @click="goToNoticeCenter">进入通知中心管理全部</el-button>
         <el-button type="primary" @click="noticeDetailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
@@ -2389,6 +2389,95 @@ function handleLogout() {
     isLoggedIn.value = false
     ElMessage.success('已安全退出系统')
   }).catch(() => {})
+}
+
+// ==========================================
+// 党务合规雷达从右往左滚动与交互直达
+// ==========================================
+const BASE_RADAR_ALERTS = [
+  {
+    id: 1,
+    title: '【合规阻断】入党积极分子考察期不满 365 天强制锁定',
+    badgeText: '硬阻断',
+    tagType: 'danger',
+    alertClass: 'alert-danger',
+    summary: '【张强·红数科技】积极分子考察仅 290 天（未满 365 天），系统强制锁定禁止提前流转至第 9 步发展对象！',
+    noticeTypeName: '合规时限预警',
+    channelName: '企业微信',
+    receiverName: '李卫民 (红数信息支部书记)',
+    receiverTarget: 'liweimin@hongshu-info.com',
+    sendTime: '2026-10-09 09:30:00',
+    content: '【张强】同志积极分子备案时间为 2024-06-15，截至今日考察仅 290 天，未满法定 1 年硬性考察周期，系统合规防错引擎已强制阻断进入第 9 步！'
+  },
+  {
+    id: 2,
+    title: '【时限红线】入党申请谈话 30 天红线临期预警',
+    badgeText: '临期预警',
+    tagType: 'warning',
+    alertClass: 'alert-warning',
+    summary: '【陈思佳·集团总部】申请书递交已第 22 天，距离“1个月内必须完成支部谈话”红线仅剩 8 天！',
+    noticeTypeName: '合规时限预警',
+    channelName: '政务短信',
+    receiverName: '杨海 (总支组织委员)',
+    receiverTarget: '13987301005',
+    sendTime: '2026-10-09 08:45:12',
+    content: '【陈思佳】同志于 2025-03-15 递交入党申请书，已满 22 天，距离中组部细则“1个月内必须指派专人谈话”红线仅剩 8 天，请支部抓紧开展谈话并归档谈话记录表。'
+  },
+  {
+    id: 3,
+    title: '【转正催办】预备党员预备期届满提醒及转正申请催办',
+    badgeText: '转正提醒',
+    tagType: 'warning',
+    alertClass: 'alert-warning',
+    summary: '【李晓辉·链达科技】预备期将在 14 天后满 1 年，已自动下发《转正申请书》催办指令。',
+    noticeTypeName: '转正到期催办',
+    channelName: '企业微信',
+    receiverName: '李晓辉 (预备党员)',
+    receiverTarget: 'HH-LD-008',
+    sendTime: '2026-10-08 14:20:00',
+    content: '预备党员【李晓辉】同志预备期（2024-03-25 ~ 2025-03-25）即将满期，已自动下达转正催办通知，请本人于满期前1-2周主动向链达科技党支部递交书面《转正申请书》。'
+  },
+  {
+    id: 4,
+    title: '【纪检会签】发展对象廉洁从业审查意见书待出具',
+    badgeText: '纪检联动',
+    tagType: 'primary',
+    alertClass: 'alert-info',
+    summary: '【林雨涵·幂次科技】政审函调完成，当前流转至集团纪委出具《廉洁从业意见书》（一票否决权）。',
+    noticeTypeName: '纪检把关通知',
+    channelName: '钉钉工作通知',
+    receiverName: '周国平 (总支纪检委员)',
+    receiverTarget: 'zhouguoping@honghe-data.com',
+    sendTime: '2026-10-07 10:15:30',
+    content: '发展对象【林雨涵】同志已完成直系亲属政审函调，当前流转至集团纪委出具《廉洁从业意见书》（一票否决权），请纪检风控部周国平部长在线复核会签。'
+  }
+]
+
+// 复制两组实现无缝循环左移跑马灯
+const radarAlertsDoubled = computed(() => {
+  return [...BASE_RADAR_ALERTS, ...BASE_RADAR_ALERTS]
+})
+
+function handleRadarAlertClick(alertItem) {
+  currentViewingNotice.value = {
+    id: alertItem.id,
+    title: alertItem.title,
+    noticeTypeName: alertItem.noticeTypeName,
+    typeTag: alertItem.tagType,
+    channelName: alertItem.channelName,
+    sendTime: alertItem.sendTime,
+    content: alertItem.content,
+    receiverName: alertItem.receiverName,
+    receiverTarget: alertItem.receiverTarget,
+    isRead: 1
+  }
+  noticeDetailVisible.value = true
+}
+
+function goToNoticeCenter() {
+  noticeDetailVisible.value = false
+  activeTab.value = 'notices'
+  ElMessage.info('已为您切换至【党建通知中心与多渠道】管理页')
 }
 
 // ==========================================
@@ -3937,6 +4026,8 @@ function exportTableData() {
   align-items: center;
   gap: 20px;
   overflow: hidden;
+  height: 44px;
+  box-sizing: border-box;
 }
 
 .marquee-tag {
@@ -3947,33 +4038,93 @@ function exportTableData() {
   font-weight: bold;
   font-size: 13px;
   white-space: nowrap;
+  flex-shrink: 0;
+  z-index: 2;
+  background: #fff8e6;
+  padding-right: 12px;
+  box-shadow: 4px 0 8px #fff8e6;
 }
 
-.marquee-content {
+.marquee-track-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+}
+
+.marquee-scroller {
   display: flex;
   align-items: center;
-  gap: 24px;
-  font-size: 12.5px;
-  overflow-x: auto;
+  gap: 36px;
   white-space: nowrap;
+  animation: marquee-roll-left 34s linear infinite;
+  will-change: transform;
+}
+
+/* 鼠标悬停（hover）暂停平滑滚动 */
+.marquee-track-container:hover .marquee-scroller {
+  animation-play-state: paused;
+}
+
+@keyframes marquee-roll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 .alert-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 3px 12px;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+  user-select: none;
 }
 
-.alert-danger span {
+.alert-item:hover {
+  background: rgba(194, 28, 29, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.alert-item .alert-text {
+  transition: color 0.2s;
+}
+
+.alert-item:hover .alert-text {
+  text-decoration: underline;
+}
+
+.alert-item .click-hint {
+  font-size: 11px;
+  color: #909399;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all 0.2s ease;
+}
+
+.alert-item:hover .click-hint {
+  opacity: 1;
+  transform: translateX(0);
+  color: #c21c1d;
+  font-weight: bold;
+}
+
+.alert-danger .alert-text {
   color: #c21c1d;
   font-weight: 500;
 }
 
-.alert-warning span {
+.alert-warning .alert-text {
   color: #b88230;
 }
 
-.alert-info span {
+.alert-info .alert-text {
   color: #409eff;
 }
 

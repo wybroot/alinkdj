@@ -141,6 +141,28 @@
         </div>
       </div>
     </div>
+
+    <!-- 登录页页脚居中：国企版权与ICP备案占位 -->
+    <footer class="login-footer">
+      <div class="footer-links">
+        <span>红河数据产业集团有限公司党总支 · 智慧党建数字化管理系统</span>
+        <span class="divider">|</span>
+        <span>技术支持：企业信息化管理部 / 企划党群部</span>
+        <span class="divider">|</span>
+        <a href="javascript:void(0)" class="footer-link">系统安全等级保护三级认定</a>
+      </div>
+      <div class="footer-copyright">
+        <span>Copyright © 2024-2026 红河数据产业集团有限公司 版权所有</span>
+        <span class="divider">|</span>
+        <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" class="icp-link">
+          滇ICP备2026089123号-1
+        </a>
+        <span class="divider">|</span>
+        <span class="security-badge">
+          <el-icon :size="13"><Lock /></el-icon> 滇公网安备 53250102000888号
+        </span>
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -580,5 +602,55 @@ function handleForgetPwd() {
 
 .security-declaration .el-icon {
   color: #67c23a;
+}
+
+/* 页脚居中版权与备案号 */
+.login-footer {
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.footer-links, .footer-copyright {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.footer-copyright {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.login-footer .divider {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 11px;
+}
+
+.footer-link, .icp-link {
+  color: rgba(244, 208, 63, 0.85);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.footer-link:hover, .icp-link:hover {
+  color: #f4d03f;
+  text-decoration: underline;
+}
+
+.security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 </style>
