@@ -2416,6 +2416,117 @@
         <el-button type="primary" @click="confirmAssignRole">确认授权生效</el-button>
       </template>
     </el-dialog>
+
+    <!-- 弹窗 12: 新建入党申请人建档弹窗 -->
+    <el-dialog 
+      v-model="addApplicantDialogVisible" 
+      title="【新建入党申请人建档】录入第 1 步《递交入党申请书》" 
+      width="680px" 
+      destroy-on-close
+    >
+      <el-alert
+        title="规程提醒：申请人须年满18周岁、自愿提出书面亲笔申请；支部收到申请后须在 1 个月内指派专人完成初次政治谈话并归档。"
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 16px"
+      />
+      <el-form :model="newApplicantForm" label-width="120px">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="申请人姓名*" required>
+              <el-input v-model="newApplicantForm.name" placeholder="员工真实姓名" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="企业工号*" required>
+              <el-input v-model="newApplicantForm.workNo" placeholder="如 HH-HS-088" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="性别 / 年龄*" required>
+              <div style="display: flex; gap: 10px; width: 100%;">
+                <el-select v-model="newApplicantForm.gender" style="width: 90px">
+                  <el-option label="男" value="男" />
+                  <el-option label="女" value="女" />
+                </el-select>
+                <el-input-number v-model="newApplicantForm.age" :min="18" :max="70" style="flex: 1" />
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="最高学历*" required>
+              <el-select v-model="newApplicantForm.education" placeholder="最高学历" style="width: 100%">
+                <el-option label="大专" value="大专" />
+                <el-option label="大学本科" value="大学本科" />
+                <el-option label="硕士研究生" value="硕士研究生" />
+                <el-option label="博士研究生" value="博士研究生" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="所属党支部*" required>
+              <!-- 若为支部管理员，强锁本支部且禁用修改，杜绝跨支部建档 -->
+              <el-select 
+                v-model="newApplicantForm.branchName" 
+                :disabled="isBranchAdmin"
+                style="width: 100%"
+              >
+                <el-option label="红数信息支部" value="中共红河红数信息技术服务有限公司支部委员会" />
+                <el-option label="幂次科技支部" value="中共云南幂次科技有限公司支部委员会" />
+                <el-option label="链达科技支部" value="中共红河链达科技有限公司支部委员会" />
+                <el-option label="集团党总支" value="中共红河数据产业集团有限公司总支部委员会" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="行政部门 / 岗位*" required>
+              <el-input v-model="newApplicantForm.deptName" placeholder="如 技术研发部 / 架构师" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="递交申请日期*" required>
+              <el-date-picker 
+                v-model="newApplicantForm.applyDate" 
+                type="date" 
+                value-format="YYYY-MM-DD" 
+                style="width: 100%" 
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="国企骨干属性">
+              <el-checkbox v-model="newApplicantForm.isFrontline">生产一线</el-checkbox>
+              <el-checkbox v-model="newApplicantForm.isTechnicalTalent">技术骨干</el-checkbox>
+              <el-checkbox v-model="newApplicantForm.isDualCultivate">“双培养”</el-checkbox>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item label="书面申请书原件">
+          <el-upload
+            action="#"
+            :auto-upload="false"
+            :limit="1"
+            accept=".pdf,.doc,.docx,.jpg,.png"
+          >
+            <el-button size="small" type="primary" plain icon="Upload">上传亲笔签名扫描件 (.pdf / 图片)</el-button>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="addApplicantDialogVisible = false">取消</el-button>
+        <el-button type="primary" icon="Check" @click="submitCreateApplicant">确认立卷建档并列入名册</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -2664,15 +2775,31 @@ function goToNoticeCenter() {
 }
 
 // ==========================================
-// 1. 发展党员工作台筛选
+// 1. 发展党员工作台与新建申请人业务逻辑
 // ==========================================
+const membersList = ref([...MOCK_MEMBERS])
+const addApplicantDialogVisible = ref(false)
+const newApplicantForm = ref({
+  name: '',
+  workNo: '',
+  gender: '男',
+  age: 26,
+  education: '大学本科',
+  branchName: '中共红河红数信息技术服务有限公司支部委员会',
+  deptName: '',
+  applyDate: new Date().toISOString().slice(0, 10),
+  isFrontline: true,
+  isTechnicalTalent: true,
+  isDualCultivate: false
+})
+
 const selectedFilterStage = ref(null)
 const filterBranch = ref('')
 const filterSpecialType = ref('')
 const searchKeyword = ref('')
 
 const filteredMembers = computed(() => {
-  return MOCK_MEMBERS.filter(m => {
+  return membersList.value.filter(m => {
     // 四级数据范围限制：支部管理员仅能查阅本支部发展成员
     if (currentRole.value === 'branch_admin_hs' && !m.branchName.includes('红数')) return false
     if (currentRole.value === 'branch_admin_mc' && !m.branchName.includes('幂次')) return false
@@ -2698,7 +2825,131 @@ const filteredMembers = computed(() => {
 })
 
 function getStageMemberCount(stageId) {
-  return MOCK_MEMBERS.filter(m => m.currentStageId === stageId).length
+  return membersList.value.filter(m => m.currentStageId === stageId).length
+}
+
+function openAddDialog() {
+  const defaultBranch = isBranchAdmin.value ? currentBranchNameLocked.value : '中共红河红数信息技术服务有限公司支部委员会'
+  newApplicantForm.value = {
+    name: '',
+    workNo: 'HH-' + (Math.floor(Math.random() * 890 + 100)),
+    gender: '男',
+    age: 26,
+    education: '大学本科',
+    branchName: defaultBranch,
+    deptName: isBranchAdmin.value ? '技术保障中心 / 运维研发岗' : '红河数据产业集团 · 业务部门',
+    applyDate: new Date().toISOString().slice(0, 10),
+    isFrontline: true,
+    isTechnicalTalent: true,
+    isDualCultivate: false
+  }
+  addApplicantDialogVisible.value = true
+}
+
+function submitCreateApplicant() {
+  if (!newApplicantForm.value.name.trim()) {
+    ElMessage.warning('请输入入党申请人真实姓名！')
+    return
+  }
+  if (!newApplicantForm.value.workNo.trim()) {
+    ElMessage.warning('请输入员工工号！')
+    return
+  }
+  if (!newApplicantForm.value.deptName.trim()) {
+    ElMessage.warning('请输入所在行政部门与岗位！')
+    return
+  }
+  if (!newApplicantForm.value.applyDate) {
+    ElMessage.warning('请选择递交入党申请书日期！')
+    return
+  }
+
+  // 支部管理员越权校验：禁止为其他支部建档
+  if (isBranchAdmin.value && newApplicantForm.value.branchName !== currentBranchNameLocked.value) {
+    ElMessageBox.alert('您无权跨支部为其他党支部建立入党申请人档案！', '越权拦截', { type: 'error' })
+    return
+  }
+
+  const newId = Date.now()
+  const branchShortMap = {
+    '中共红河红数信息技术服务有限公司支部委员会': '红数科技',
+    '中共云南幂次科技有限公司支部委员会': '幂次科技',
+    '中共红河链达科技有限公司支部委员会': '链达科技',
+    '中共红河数据产业集团有限公司总支部委员会': '集团总部'
+  }
+
+  const applicantRecord = {
+    id: newId,
+    name: newApplicantForm.value.name.trim(),
+    workNo: newApplicantForm.value.workNo.trim(),
+    gender: newApplicantForm.value.gender,
+    age: newApplicantForm.value.age,
+    deptName: newApplicantForm.value.deptName.trim(),
+    jobTitle: newApplicantForm.value.deptName.split('/')[1] || '骨干员工',
+    education: newApplicantForm.value.education,
+    branchId: 2,
+    branchName: newApplicantForm.value.branchName,
+    originBranch: '企业新录入入党申请人',
+    transferInDate: newApplicantForm.value.applyDate,
+    transferOutDate: null,
+    transferOutBranch: '',
+    isFrontline: newApplicantForm.value.isFrontline,
+    isTechnicalTalent: newApplicantForm.value.isTechnicalTalent,
+    isDualCultivate: newApplicantForm.value.isDualCultivate,
+    cultivators: [],
+    currentStageId: 1, // 阶段1: 申请入党
+    currentStepId: 1,  // 步骤1: 递交入党申请书
+    stepStatus: 'process',
+    daysInCurrentStep: 1,
+    applyDate: newApplicantForm.value.applyDate,
+    firstTalkDate: null,
+    activistDate: null,
+    targetDate: null,
+    probationaryDate: null,
+    officialDate: null,
+    complianceAlert: {
+      type: 'warning',
+      message: '【新入党申请人建档】请支部在申请之日起 1 个月内指派专人开展谈话并归档谈话记录表。'
+    },
+    materials: [
+      { name: '入党申请书(亲笔书面原件)', code: 'M01', status: 'approved', time: newApplicantForm.value.applyDate }
+    ]
+  }
+
+  // 1. 注入发展党员工作台列表
+  membersList.value.unshift(applicantRecord)
+
+  // 2. 同步登记入花名册（政治面貌：入党申请人）
+  rosterList.value.unshift({
+    id: newId,
+    name: applicantRecord.name,
+    workNo: applicantRecord.workNo,
+    idCard: '532501' + (1990 + Math.floor(Math.random() * 12)) + '0101' + Math.floor(Math.random() * 8999 + 1000),
+    gender: applicantRecord.gender,
+    age: applicantRecord.age,
+    branchName: applicantRecord.branchName,
+    deptName: applicantRecord.deptName,
+    jobTitle: applicantRecord.jobTitle,
+    partyStatus: 5, // 5: 入党申请人
+    partyPost: '入党申请人',
+    partyStandingYears: 0,
+    joinPartyDate: null,
+    officialPartyDate: null,
+    duesStatus: 1,
+    nationalCode: '53250100' + Math.floor(Math.random() * 89999999 + 10000000),
+    studyHours: 0,
+    studyTarget: 40,
+    originBranch: '',
+    transferInDate: applicantRecord.applyDate,
+    transferOutDate: null,
+    transferOutBranch: '',
+    isFrontline: applicantRecord.isFrontline,
+    isTechnicalTalent: applicantRecord.isTechnicalTalent,
+    isDualCultivate: applicantRecord.isDualCultivate
+  })
+
+  addApplicantDialogVisible.value = false
+  ElMessage.success(`【${applicantRecord.name}】同志入党申请人建档立卷成功！已归入第 1 阶段台账与全集团花名册。`)
 }
 
 function filterByStage(stageId) {
@@ -4184,10 +4435,6 @@ function mockBatchExportDocs() {
 function downloadDocSuccess() {
   ElMessage.success(`已成功导出 ${previewDocTitle.value} Word 格式文档！`)
   previewDialogVisible.value = false
-}
-
-function openAddDialog() {
-  ElMessage.info('新建入党申请人功能已就绪，请输入员工工号关联企业人事库。')
 }
 
 function exportTableData() {
