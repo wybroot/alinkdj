@@ -1,9 +1,14 @@
 <template>
   <div class="dj-root" :class="{ 'big-screen-active': isBigScreenMode }">
     <!-- ========================================================================= -->
-    <!-- 普通业务端界面                                                            -->
+    <!-- 0. 登录界面 (未登录状态展示)                                             -->
     <!-- ========================================================================= -->
-    <div v-if="!isBigScreenMode" class="dj-app">
+    <LoginView v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
+
+    <!-- ========================================================================= -->
+    <!-- 1. 登录后普通业务端界面                                                    -->
+    <!-- ========================================================================= -->
+    <div v-else-if="!isBigScreenMode" class="dj-app">
       <!-- 顶部导航栏 -->
       <header class="dj-header">
         <div class="header-left">
@@ -52,9 +57,21 @@
               <el-option label="发展成员本人 (工号HH-HS-012)" value="member_self" />
             </el-select>
           </div>
+
+          <!-- 用户名与组织标签 -->
+          <div class="user-profile-badge">
+            <el-avatar :size="26" class="user-avatar-small">{{ currentUser?.realName?.slice(0, 1) || '党' }}</el-avatar>
+            <span class="user-realname">{{ currentUser?.realName || '党员干部' }}</span>
+          </div>
+
           <el-tag type="danger" effect="dark" round class="org-tag">
-            <el-icon><OfficeBuilding /></el-icon> 集团党总支
+            <el-icon><OfficeBuilding /></el-icon> {{ currentUserOrgShort }}
           </el-tag>
+
+          <!-- 退出登录按钮 -->
+          <el-button link type="info" icon="SwitchButton" class="logout-btn" @click="handleLogout">
+            退出
+          </el-button>
         </div>
       </header>
 
@@ -2325,6 +2342,7 @@
 import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import BigScreenView from './components/BigScreenView.vue'
+import LoginView from './components/LoginView.vue'
 import { 
   SOE_ORGS, 
   STAGES_AND_STEPS, 
@@ -2341,10 +2359,37 @@ import {
   MOCK_NOTICE_LOGS
 } from './data/mockData.js'
 
-// 基础模式与大屏状态
+// 基础模式、大屏状态与登录态
 const isBigScreenMode = ref(false)
+const isLoggedIn = ref(true) // 默认已登录状态，支持退出到登录页与一键切换
+const currentUser = ref(MOCK_SYS_USERS[1]) // 默认杨海 (党总支组织员)
 const currentRole = ref('committee_organizer')
 const activeTab = ref('workbench')
+
+const currentUserOrgShort = computed(() => {
+  if (!currentUser.value?.orgName) return '集团党总支'
+  if (currentUser.value.orgName.includes('红数')) return '红数信息支部'
+  if (currentUser.value.orgName.includes('幂次')) return '幂次科技支部'
+  if (currentUser.value.orgName.includes('链达')) return '链达科技支部'
+  return '集团党总支'
+})
+
+function handleLoginSuccess(payload) {
+  currentUser.value = payload.user
+  currentRole.value = payload.role
+  isLoggedIn.value = true
+}
+
+function handleLogout() {
+  ElMessageBox.confirm(
+    '确定要安全退出当前党务登录状态，返回身份认证登录页吗？',
+    '退出登录确认',
+    { confirmButtonText: '确定退出', cancelButtonText: '取消', type: 'info' }
+  ).then(() => {
+    isLoggedIn.value = false
+    ElMessage.success('已安全退出系统')
+  }).catch(() => {})
+}
 
 // ==========================================
 // 1. 发展党员工作台筛选
@@ -5064,5 +5109,37 @@ function exportTableData() {
 
 .header-badge-item {
   margin-right: 6px;
+}
+
+.user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 3px 8px 3px 4px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.user-avatar-small {
+  background: #c21c1d;
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.user-realname {
+  font-size: 13px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.logout-btn {
+  font-size: 13px;
+  color: #909399;
+}
+
+.logout-btn:hover {
+  color: #c21c1d;
 }
 </style>
