@@ -11,6 +11,7 @@ import com.honghe.party.mapper.PartyStepRecordMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -123,9 +124,16 @@ public class MemberController {
             @RequestParam(required = false) Boolean isFrontline,
             @RequestParam(required = false) Boolean isTechnicalTalent,
             @RequestParam(required = false) Boolean isDualCultivate,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String keyword) {
 
         LambdaQueryWrapper<PartyMember> wrapper = new LambdaQueryWrapper<>();
+        if (status != null) {
+            wrapper.eq(PartyMember::getStatus, status);
+        } else {
+            // 默认花名册只展示在册党员，过滤转出除名成员 (status = 4)
+            wrapper.ne(PartyMember::getStatus, 4);
+        }
         if (orgId != null) {
             wrapper.eq(PartyMember::getOrgId, orgId);
         }
@@ -227,16 +235,44 @@ public class MemberController {
             return Result.error(400, "【合规防错引擎阻断】" + auditResult.getDescription());
         }
 
-        // 2. 更新成员步骤状态
+        // 2. 更新成员步骤状态并据实同步花名册政治面貌与关键日期
         member.setCurrentStep(nextStep);
-        if (nextStep >= 4 && nextStep <= 8) {
-            member.setCurrentStage(2);
-        } else if (nextStep >= 9 && nextStep <= 14) {
-            member.setCurrentStage(3);
-        } else if (nextStep >= 15 && nextStep <= 21) {
-            member.setCurrentStage(4);
-        } else if (nextStep >= 22) {
+        if (nextStep >= 25) {
             member.setCurrentStage(5);
+            member.setPartyStatus(1); // 1: 正式党员
+            if (member.getOfficialPartyDate() == null) {
+                member.setOfficialPartyDate(LocalDate.now());
+            }
+            if (member.getPartyPost() == null || "入党申请人".equals(member.getPartyPost()) || "预备党员".equals(member.getPartyPost())) {
+                member.setPartyPost("普通党员");
+            }
+        } else if (nextStep >= 20) {
+            member.setCurrentStage(nextStep >= 21 ? 5 : 4);
+            member.setPartyStatus(2); // 2: 预备党员
+            if (member.getJoinPartyDate() == null) {
+                member.setJoinPartyDate(LocalDate.now());
+            }
+            if (member.getPartyPost() == null || "入党申请人".equals(member.getPartyPost()) || "发展对象".equals(member.getPartyPost())) {
+                member.setPartyPost("预备党员");
+            }
+        } else if (nextStep >= 12) {
+            member.setCurrentStage(nextStep >= 17 ? 4 : 3);
+            member.setPartyStatus(3); // 3: 发展对象
+            if (member.getPartyPost() == null || "入党申请人".equals(member.getPartyPost()) || "积极分子".equals(member.getPartyPost())) {
+                member.setPartyPost("发展对象");
+            }
+        } else if (nextStep >= 6) {
+            member.setCurrentStage(2);
+            member.setPartyStatus(4); // 4: 积极分子
+            if (member.getPartyPost() == null || "入党申请人".equals(member.getPartyPost())) {
+                member.setPartyPost("积极分子");
+            }
+        } else {
+            member.setCurrentStage(1);
+            member.setPartyStatus(5); // 5: 入党申请人
+            if (member.getPartyPost() == null) {
+                member.setPartyPost("入党申请人");
+            }
         }
         member.setUpdatedAt(LocalDateTime.now());
         memberMapper.updateById(member);

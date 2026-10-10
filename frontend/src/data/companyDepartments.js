@@ -49,6 +49,7 @@ export function getCompanyByBranch(branchName) {
   return COMPANY_DEPARTMENTS.find(company => company.branchName === branchName)
 }
 
+// 获取指定党支部对应公司的默认部门（保持快速推荐联动）
 export function getDepartmentOptions(branchName) {
   const company = getCompanyByBranch(branchName)
   return company ? company.departments.map(department => ({
@@ -56,4 +57,40 @@ export function getDepartmentOptions(branchName) {
     value: `${company.companyName} · ${department.name}`,
     jobTitle: department.jobTitle
   })) : []
+}
+
+// 获取全集团所有法人公司及其行政部门分组选项（支持“人在A公司，在B党支部”跨公司自由选择）
+export function getAllDepartmentGroupOptions() {
+  return COMPANY_DEPARTMENTS.map(item => ({
+    companyName: item.companyName,
+    branchName: item.branchName,
+    options: item.departments.map(dept => ({
+      label: dept.name,
+      value: `${item.companyName} · ${dept.name}`,
+      jobTitle: dept.jobTitle,
+      companyName: item.companyName
+    }))
+  }))
+}
+
+// 解析部门字符串中的法人公司名
+export function getCompanyNameFromDept(deptName) {
+  if (!deptName) return ''
+  if (deptName.includes(' · ')) {
+    return deptName.split(' · ')[0].trim()
+  }
+  for (const c of COMPANY_DEPARTMENTS) {
+    if (deptName.includes(c.companyName)) return c.companyName
+  }
+  return deptName
+}
+
+// 判定是否属于【跨单位党支部派驻 / 借调挂靠】（人事在A公司，组织关系在B支部）
+export function isCrossCompany(branchName, deptName) {
+  if (!branchName || !deptName) return false
+  const branchCompany = getCompanyByBranch(branchName)?.companyName
+  if (!branchCompany) return false
+  const deptCompany = getCompanyNameFromDept(deptName)
+  if (!deptCompany) return false
+  return branchCompany !== deptCompany
 }

@@ -45,7 +45,13 @@ public class AuthController {
         if (username == null || username.isBlank() || password == null || password.isBlank() || password.length() > 72) {
             return Result.error(400, "请输入账号和密码");
         }
-        SysUser user = userMapper.selectOne(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
+        String account = username.trim();
+        // 多凭证统一鉴权体系：支持手机号码、系统工号、用户账号任一凭证登录
+        SysUser user = userMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, account)
+                .or().eq(SysUser::getPhone, account)
+                .or().eq(SysUser::getWorkNo, account)
+                .last("LIMIT 1"));
         if (user == null) {
             return Result.error(401, "账号或密码错误");
         }

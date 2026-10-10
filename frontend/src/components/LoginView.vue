@@ -72,7 +72,7 @@
                 <el-input 
                   v-model="loginForm.username" 
                   size="large"
-                  placeholder="请输入用户名 / 党员干部工号" 
+                  placeholder="请输入手机号 / 员工工号 / 登录用户名" 
                   prefix-icon="User"
                   clearable
                 />

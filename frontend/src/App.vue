@@ -33,18 +33,6 @@
             进入党建指挥大屏
           </el-button>
 
-          <!-- 通知中心按钮（带未读角标） -->
-          <el-badge :value="unreadNoticeCount" :max="99" :hidden="unreadNoticeCount === 0" class="header-badge-item">
-            <el-button 
-              type="danger" 
-              plain
-              icon="Bell" 
-              @click="activeTab = 'notices'"
-            >
-              通知中心
-            </el-button>
-          </el-badge>
-
           <!-- 当前认证党务身份（只读标签，严格禁止任意下拉切换越权） -->
           <div class="current-auth-role-tag">
             <span class="role-static-label">党务权责身份：</span>
@@ -167,7 +155,7 @@
                 </div>
 
                 <div class="toolbar-right">
-                  <el-button v-if="hasPermission('workbench:create_applicant')" type="primary" icon="Plus" @click="openAddDialog">新建入党申请人建档</el-button>
+                  <el-button v-if="hasPermission('workbench:create_applicant')" type="primary" icon="Plus" @click="openAddDialog">入党申请人建档</el-button>
                   <el-button v-if="hasPermission('workbench:export')" icon="Download" @click="exportTableData">导出发展党员合规台账</el-button>
                 </div>
               </div>
@@ -189,11 +177,17 @@
                   </template>
                 </el-table-column>
 
-                <el-table-column label="所属党支部及部门" min-width="220">
+                <el-table-column label="所属党支部及部门" min-width="240">
                   <template #default="{ row }">
                     <div class="branch-cell">
-                      <span class="branch-title">{{ row.branchName }}</span>
-                      <span class="dept-title">{{ row.deptName }}</span>
+                      <span class="branch-title">
+                        {{ row.branchName }}
+                        <el-tag v-if="isCrossCompany(row.branchName, row.deptName)" size="small" type="warning" effect="plain" style="margin-left: 6px">跨单位挂靠/派驻</el-tag>
+                      </span>
+                      <span class="dept-title">
+                        <span v-if="isCrossCompany(row.branchName, row.deptName)" style="color: #e6a23c; font-weight: 500">[人事单位] </span>
+                        {{ row.deptName }}
+                      </span>
                     </div>
                   </template>
                 </el-table-column>
@@ -259,7 +253,7 @@
           <!-- 标签页 2: 所有党员花名册 (组织员/支部书记查阅维护) -->
           <el-tab-pane v-if="hasPermission('roster:view')" name="roster">
             <template #label>
-              <span class="tab-label"><el-icon><User /></el-icon> 全集团所有党员花名册</span>
+              <span class="tab-label"><el-icon><User /></el-icon> 党员花名册</span>
             </template>
 
             <div class="roster-container-card">
@@ -280,6 +274,10 @@
                 <div class="stat-pill">
                   <span class="pill-label">发展对象/积极分子</span>
                   <span class="pill-val color-blue">{{ getRosterCountByStatus(3) + getRosterCountByStatus(4) }} 人</span>
+                </div>
+                <div class="stat-pill">
+                  <span class="pill-label">入党申请人</span>
+                  <span class="pill-val color-orange">{{ getRosterCountByStatus(5) }} 人</span>
                 </div>
                 <div class="stat-pill">
                   <span class="pill-label">一线与研发骨干率</span>
@@ -378,18 +376,17 @@
                   </template>
                 </el-table-column>
 
-                <el-table-column label="原所在党支部" min-width="190">
-                  <template #default="{ row }">
-                    <span v-if="row.originBranch" style="font-size: 12px; color: #475569">{{ row.originBranch }}</span>
-                    <span v-else style="font-size: 11px; color: #94a3b8">本支部原生发展</span>
-                  </template>
-                </el-table-column>
-
-                <el-table-column label="现所在党组织及职务" min-width="240">
+                <el-table-column label="现所在党组织及职务" min-width="260">
                   <template #default="{ row }">
                     <div class="branch-cell">
-                      <span class="branch-title">{{ row.branchName }}</span>
-                      <span class="dept-title">{{ row.deptName }} · {{ row.jobTitle }}</span>
+                      <span class="branch-title">
+                        {{ row.branchName }}
+                        <el-tag v-if="isCrossCompany(row.branchName, row.deptName)" size="small" type="warning" effect="plain" style="margin-left: 6px">跨单位挂靠/派驻</el-tag>
+                      </span>
+                      <span class="dept-title">
+                        <span v-if="isCrossCompany(row.branchName, row.deptName)" style="color: #e6a23c; font-weight: 500">[人事单位] </span>
+                        {{ row.deptName }} · {{ row.jobTitle }}
+                      </span>
                     </div>
                   </template>
                 </el-table-column>
@@ -429,23 +426,6 @@
                   </template>
                 </el-table-column>
 
-                <el-table-column label="转入本支部时间" width="130">
-                  <template #default="{ row }">
-                    <span v-if="row.transferInDate" style="font-size: 12px; color: #303133">{{ row.transferInDate }}</span>
-                    <span v-else style="font-size: 11px; color: #909399">建党在册</span>
-                  </template>
-                </el-table-column>
-
-                <el-table-column label="组织关系转出" width="170">
-                  <template #default="{ row }">
-                    <div v-if="row.transferOutDate" style="display: flex; flex-direction: column; font-size: 11px">
-                      <el-tag size="small" type="danger" effect="plain">已转出至：{{ row.transferOutBranch || '外单位党组织' }}</el-tag>
-                      <span style="color: #909399; font-size: 10.5px">转出日期：{{ row.transferOutDate }}</span>
-                    </div>
-                    <el-tag v-else size="small" type="success" effect="plain">在册正常</el-tag>
-                  </template>
-                </el-table-column>
-
                 <el-table-column label="操作" width="110" fixed="right">
                   <template #default="{ row }">
                     <el-button 
@@ -463,10 +443,357 @@
             </div>
           </el-tab-pane>
 
+          <!-- 标签页 2.5: 党员转接及调整备案 (转接台账 + 职务调整备案) -->
+          <el-tab-pane v-if="hasPermission('roster:view') || hasPermission('workbench:transfer')" name="transfer_filing">
+            <template #label>
+              <span class="tab-label"><el-icon><Switch /></el-icon> 党员转接及调整备案</span>
+            </template>
+
+            <div class="transfer-filing-container">
+              <!-- 顶部子模块切换栏与全局说明 -->
+              <div class="sub-tab-nav-bar">
+                <el-radio-group v-model="transferActiveSubTab" size="large">
+                  <el-radio-button label="transfer">
+                    <el-icon><Switch /></el-icon> 党员组织关系转接记录 (转入/转出)
+                  </el-radio-button>
+                  <el-radio-button label="adjustment">
+                    <el-icon><Tickets /></el-icon> 党员党内职务调整备案
+                  </el-radio-button>
+                </el-radio-group>
+                <div class="sub-nav-tips">
+                  <span v-if="transferActiveSubTab === 'transfer'">
+                    <el-tag size="small" type="success" effect="plain">业务联动机制</el-tag>
+                    办理组织关系转入自动在花名册建档，转出则自动从花名册除名注销。
+                  </span>
+                  <span v-else>
+                    <el-tag size="small" type="primary" effect="plain">业务联动机制</el-tag>
+                    党内职务调整备案生效后，自动同步更新对应党员花名册中的党内职务。
+                  </span>
+                </div>
+              </div>
+
+              <!-- ============================================== -->
+              <!-- 子模块 1: 党员组织关系转接记录 (转入 / 转出) -->
+              <!-- ============================================== -->
+              <div v-if="transferActiveSubTab === 'transfer'" class="transfer-records-section">
+                <!-- 统计卡片横幅 -->
+                <div class="roster-stats-banner">
+                  <div class="stat-pill">
+                    <span class="pill-label">累计转接人次</span>
+                    <span class="pill-val">{{ transfersList.length }} 人次</span>
+                  </div>
+                  <div class="stat-pill">
+                    <span class="pill-label">转入本级在册</span>
+                    <span class="pill-val color-green">{{ transferInCount }} 人</span>
+                  </div>
+                  <div class="stat-pill">
+                    <span class="pill-label">转出外部党组织</span>
+                    <span class="pill-val color-red">{{ transferOutCount }} 人</span>
+                  </div>
+                  <div class="stat-pill">
+                    <span class="pill-label">花名册实时联动</span>
+                    <span class="pill-val color-blue">100% 自动同步</span>
+                  </div>
+                  <div class="stat-pill">
+                    <span class="pill-label">介绍信存根归档率</span>
+                    <span class="pill-val color-gold">100%</span>
+                  </div>
+                </div>
+
+                <!-- 工具栏 -->
+                <div class="table-toolbar">
+                  <div class="toolbar-left">
+                    <el-input 
+                      v-model="transferSearchKeyword" 
+                      placeholder="搜索党员姓名、工号、介绍信编号或党组织..." 
+                      prefix-icon="Search"
+                      clearable
+                      style="width: 280px"
+                    />
+                    <el-select v-model="transferTypeFilter" placeholder="转接类型" clearable style="width: 140px">
+                      <el-option label="全部转接类型" value="" />
+                      <el-option label="组织关系转入" :value="1" />
+                      <el-option label="组织关系转出" :value="2" />
+                    </el-select>
+                    <el-select v-model="transferBranchFilter" placeholder="所属/关联党支部" clearable style="width: 230px">
+                      <el-option label="全部党组织" value="" />
+                      <el-option label="红数信息支部" value="中共红河红数信息技术服务有限公司支部委员会" />
+                      <el-option label="幂次科技支部" value="中共云南幂次科技有限公司支部委员会" />
+                      <el-option label="链达科技支部" value="中共红河链达科技有限公司支部委员会" />
+                      <el-option label="集团党总支" value="中共红河数据产业集团有限公司总支部委员会" />
+                    </el-select>
+                    <el-button v-if="transferSearchKeyword || transferTypeFilter || transferBranchFilter" link type="primary" @click="resetTransferFilters">
+                      重置
+                    </el-button>
+                  </div>
+                  <div class="toolbar-right">
+                    <el-button 
+                      v-if="hasPermission('workbench:transfer') || hasPermission('roster:create')" 
+                      type="success" 
+                      icon="Plus" 
+                      @click="openTransferInDialog"
+                    >
+                      办理组织关系转入
+                    </el-button>
+                    <el-button 
+                      v-if="hasPermission('workbench:transfer') || hasPermission('roster:edit')" 
+                      type="danger" 
+                      icon="Right" 
+                      @click="openTransferOutDialog"
+                    >
+                      办理组织关系转出
+                    </el-button>
+                    <el-button icon="Download" @click="exportTransferExcel">导出转接台账</el-button>
+                  </div>
+                </div>
+
+                <!-- 转接记录表格 -->
+                <el-table :data="filteredTransfersList" style="width: 100%" stripe class="custom-dj-table">
+                  <el-table-column label="转接类型" width="120">
+                    <template #default="{ row }">
+                      <el-tag :type="row.transferType === 1 ? 'success' : 'danger'" effect="dark">
+                        {{ row.transferType === 1 ? '组织关系转入' : '组织关系转出' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="党员姓名" width="130">
+                    <template #default="{ row }">
+                      <div class="roster-name-cell">
+                        <el-avatar :size="30" :class="row.transferType === 1 ? 'avatar-green' : 'avatar-gray'">
+                          {{ (row.memberName || '').slice(0, 1) }}
+                        </el-avatar>
+                        <div>
+                          <strong>{{ row.memberName }}</strong>
+                          <div class="sub-workno">{{ row.workNo }}</div>
+                        </div>
+                      </div>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="政治面貌" width="105">
+                    <template #default="{ row }">
+                      <el-tag size="small" :type="row.partyStatus === 1 ? 'danger' : 'warning'">
+                        {{ row.partyStatus === 1 ? '正式党员' : '预备党员' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="原所在党组织 (转出方)" min-width="220">
+                    <template #default="{ row }">
+                      <div style="font-size: 13px; font-weight: 500; color: #334155">{{ row.fromOrgName }}</div>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="拟转入党组织 (转入方)" min-width="220">
+                    <template #default="{ row }">
+                      <div style="font-size: 13px; font-weight: 600; color: #1e293b">{{ row.toOrgName }}</div>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="介绍信凭证编号" width="170">
+                    <template #default="{ row }">
+                      <span class="code-font">{{ row.letterNo || '—' }}</span>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="转接日期" width="120">
+                    <template #default="{ row }">
+                      <span style="font-size: 12.5px; color: #475569">{{ row.transferDate }}</span>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="转接原因 / 事由" min-width="170">
+                    <template #default="{ row }">
+                      <span style="font-size: 12px; color: #64748b">{{ row.transferReason || '正常组织关系流转' }}</span>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="经办人" width="100">
+                    <template #default="{ row }">
+                      <span style="font-size: 12.5px">{{ row.operatorName || '组织员' }}</span>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="花名册联动" width="130">
+                    <template #default="{ row }">
+                      <el-tag v-if="row.transferType === 1" size="small" type="success" effect="plain">
+                        <el-icon><Check /></el-icon> 已同步名册
+                      </el-tag>
+                      <el-tag v-else size="small" type="danger" effect="plain">
+                        <el-icon><Close /></el-icon> 已从名册除名
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="操作" width="115" fixed="right">
+                    <template #default="{ row }">
+                      <el-button link type="primary" size="small" icon="Document" @click="viewTransferRecord(row)">
+                        介绍信详情
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+
+              <!-- ============================================== -->
+              <!-- 子模块 2: 党员党内职务调整备案 -->
+              <!-- ============================================== -->
+              <div v-if="transferActiveSubTab === 'adjustment'" class="adjustment-records-section">
+                <!-- 统计卡片横幅 -->
+                <div class="roster-stats-banner">
+                  <div class="stat-pill">
+                    <span class="pill-label">职务调整备案总数</span>
+                    <span class="pill-val">{{ adjustmentsList.length }} 次</span>
+                  </div>
+                  <div class="stat-pill">
+                    <span class="pill-label">在任支部书记/副书记</span>
+                    <span class="pill-val color-red">{{ secretaryCount }} 人</span>
+                  </div>
+                  <div class="stat-pill">
+                    <span class="pill-label">支委会班子委员</span>
+                    <span class="pill-val color-orange">{{ committeeCount }} 人</span>
+                  </div>
+                  <div class="stat-pill">
+                    <span class="pill-label">批文归档规范率</span>
+                    <span class="pill-val color-green">100% (文号完整)</span>
+                  </div>
+                  <div class="stat-pill">
+                    <span class="pill-label">花名册职务联动</span>
+                    <span class="pill-val color-blue">实时自动同步</span>
+                  </div>
+                </div>
+
+                <!-- 工具栏 -->
+                <div class="table-toolbar">
+                  <div class="toolbar-left">
+                    <el-input 
+                      v-model="adjustmentSearchKeyword" 
+                      placeholder="搜索党员姓名、工号、批文号或职务..." 
+                      prefix-icon="Search"
+                      clearable
+                      style="width: 280px"
+                    />
+                    <el-select v-model="adjustmentBranchFilter" placeholder="按任职党组织" clearable style="width: 240px">
+                      <el-option label="全部所属党组织" value="" />
+                      <el-option label="红数信息支部" value="中共红河红数信息技术服务有限公司支部委员会" />
+                      <el-option label="幂次科技支部" value="中共云南幂次科技有限公司支部委员会" />
+                      <el-option label="链达科技支部" value="中共红河链达科技有限公司支部委员会" />
+                      <el-option label="集团党总支" value="中共红河数据产业集团有限公司总支部委员会" />
+                    </el-select>
+                    <el-select v-model="adjustmentPostFilter" placeholder="职务类型" clearable style="width: 150px">
+                      <el-option label="全部党内职务" value="" />
+                      <el-option label="党总支书记" value="党总支书记" />
+                      <el-option label="党总支副书记" value="党总支副书记" />
+                      <el-option label="党支部书记" value="党支部书记" />
+                      <el-option label="支部副书记" value="支部副书记" />
+                      <el-option label="组织委员" value="组织委员" />
+                      <el-option label="宣传委员" value="宣传委员" />
+                      <el-option label="纪检委员" value="纪检委员" />
+                    </el-select>
+                    <el-button v-if="adjustmentSearchKeyword || adjustmentBranchFilter || adjustmentPostFilter" link type="primary" @click="resetAdjustmentFilters">
+                      重置
+                    </el-button>
+                  </div>
+                  <div class="toolbar-right">
+                    <el-button 
+                      v-if="hasPermission('workbench:transfer') || hasPermission('roster:edit')" 
+                      type="primary" 
+                      icon="Plus" 
+                      @click="openAdjustmentDialog"
+                    >
+                      新增职务调整备案
+                    </el-button>
+                    <el-button icon="Download" @click="exportAdjustmentExcel">导出调整台账</el-button>
+                  </div>
+                </div>
+
+                <!-- 职务调整表格 -->
+                <el-table :data="filteredAdjustmentsList" style="width: 100%" stripe class="custom-dj-table">
+                  <el-table-column label="党员姓名" width="140">
+                    <template #default="{ row }">
+                      <div class="roster-name-cell">
+                        <el-avatar :size="30" class="avatar-red">{{ (row.memberName || '').slice(0, 1) }}</el-avatar>
+                        <div>
+                          <strong>{{ row.memberName }}</strong>
+                          <div class="sub-workno">{{ row.workNo }}</div>
+                        </div>
+                      </div>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="任职党组织" min-width="220">
+                    <template #default="{ row }">
+                      <div style="font-size: 13px; font-weight: 500; color: #1e293b">{{ row.orgName }}</div>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="调整前职务" width="130">
+                    <template #default="{ row }">
+                      <el-tag size="small" type="info" effect="plain">{{ row.oldPost || '普通党员' }}</el-tag>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="调整后职务 (新任)" width="150">
+                    <template #default="{ row }">
+                      <el-tag size="small" type="danger" effect="dark" style="font-weight: 600">
+                        {{ row.newPost }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="调整类型" width="110">
+                    <template #default="{ row }">
+                      <el-tag size="small" type="primary" effect="plain">{{ row.adjustType || '任职任命' }}</el-tag>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="批准文号 / 批复号" min-width="190">
+                    <template #default="{ row }">
+                      <span class="doc-code-badge">{{ row.documentNo }}</span>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="发文 / 生效日期" width="130">
+                    <template #default="{ row }">
+                      <span style="font-size: 12.5px; color: #475569">{{ row.effectiveDate }}</span>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="批准机关 / 决定单位" min-width="200">
+                    <template #default="{ row }">
+                      <span style="font-size: 12px; color: #64748b">{{ row.approvalUnit }}</span>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="职责分工" min-width="190">
+                    <template #default="{ row }">
+                      <span style="font-size: 12px; color: #475569">{{ row.dutyDescription || '按党章分工履职' }}</span>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="备案人" width="100">
+                    <template #default="{ row }">
+                      <span style="font-size: 12.5px">{{ row.operatorName || '组织员' }}</span>
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="操作" width="115" fixed="right">
+                    <template #default="{ row }">
+                      <el-button link type="primary" size="small" icon="Document" @click="viewAdjustmentRecord(row)">
+                        查看备案表
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </el-tab-pane>
+
           <!-- 标签页 3: 支部“三会一课”与组织生活台账 (组织员/支部书记) -->
           <el-tab-pane v-if="hasPermission('meeting:view')" name="meetings">
             <template #label>
-              <span class="tab-label"><el-icon><Calendar /></el-icon> 支部“三会一课”与组织生活台账</span>
+              <span class="tab-label"><el-icon><Calendar /></el-icon> “三会一课”/组织生活</span>
             </template>
 
             <div class="meetings-mgr-container">
@@ -684,7 +1011,7 @@
           <!-- 标签页 4: 组织与个人奖惩/荣誉台账 (纪检/组织员/书记) -->
           <el-tab-pane v-if="hasPermission('honor:view')" name="honors">
             <template #label>
-              <span class="tab-label"><el-icon><Trophy /></el-icon> 组织与个人奖惩/荣誉台账</span>
+              <span class="tab-label"><el-icon><Trophy /></el-icon> 组织/个人奖惩或荣誉</span>
             </template>
 
             <div class="honors-container-card">
@@ -860,7 +1187,7 @@
           <!-- 标签页 5: 25步全景规范与文书套打指南 (总支组织员/支部书记) -->
           <el-tab-pane v-if="hasPermission('template:view')" name="templates">
             <template #label>
-              <span class="tab-label"><el-icon><DocumentCopy /></el-icon> 25步文书模板管理（默认+导入）</span>
+              <span class="tab-label"><el-icon><DocumentCopy /></el-icon> 文书知识库</span>
             </template>
 
             <div class="templates-mgr-container">
@@ -1080,7 +1407,7 @@
           <el-tab-pane v-if="hasPermission('notice:view')" name="notices">
             <template #label>
               <span class="tab-label">
-                <el-icon><BellFilled /></el-icon> 党建通知中心与多渠道
+                <el-icon><BellFilled /></el-icon> 通知中心
                 <el-badge v-if="unreadNoticeCount > 0" :value="unreadNoticeCount" class="tab-badge" />
               </span>
             </template>
@@ -1592,17 +1919,17 @@
     <el-dialog 
       v-model="addMemberDialogVisible" 
       :title="isEditingMember ? `【修改 / 完善党员档案】${newMemberForm.name || ''}` : '新增录入党员信息（建档入库）'" 
-      width="680px"
+      width="840px"
     >
-      <el-form :model="newMemberForm" label-width="120px" class="member-add-form">
+      <el-form :model="newMemberForm" label-width="140px" class="member-add-form">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="党员姓名*" required>
+            <el-form-item label="党员姓名" required>
               <el-input v-model="newMemberForm.name" placeholder="请输入姓名" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="员工工号*" required>
+            <el-form-item label="员工工号" required>
               <el-input v-model="newMemberForm.workNo" placeholder="如 HH-HS-088" :disabled="isEditingMember" />
             </el-form-item>
           </el-col>
@@ -1610,7 +1937,7 @@
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="身份证号*" required>
+            <el-form-item label="身份证号" required>
               <el-input v-model="newMemberForm.idCard" placeholder="18位公民身份证号" maxlength="18" />
             </el-form-item>
           </el-col>
@@ -1629,7 +1956,7 @@
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="所属党支部*" required>
+            <el-form-item label="所属党支部" required>
               <!-- 若为支部管理员，强锁本支部且禁用修改，严禁给其他支部录入 -->
               <el-select 
                 v-model="newMemberForm.branchName" 
@@ -1659,22 +1986,49 @@
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="企业行政部门*" required>
-              <el-select v-model="newMemberForm.deptName" placeholder="请选择部门" style="width: 100%" @change="suggestJobTitle(newMemberForm)">
-                <el-option v-for="dept in getDepartmentOptions(newMemberForm.branchName)" :key="dept.value" :label="dept.label" :value="dept.value" />
+            <el-form-item label="企业行政部门" required>
+              <el-select 
+                v-model="newMemberForm.deptName" 
+                filterable 
+                placeholder="请选择行政部门（支持跨公司选择）" 
+                style="width: 100%" 
+                @change="suggestJobTitle(newMemberForm)"
+              >
+                <el-option-group 
+                  v-for="group in departmentGroups" 
+                  :key="group.companyName" 
+                  :label="group.companyName"
+                >
+                  <el-option 
+                    v-for="dept in group.options" 
+                    :key="dept.value" 
+                    :label="dept.value" 
+                    :value="dept.value" 
+                  />
+                </el-option-group>
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="岗位职务*" required>
+            <el-form-item label="岗位职务" required>
               <el-input v-model="newMemberForm.jobTitle" placeholder="请输入岗位职务，可修改推荐岗位" />
             </el-form-item>
           </el-col>
         </el-row>
 
+        <!-- 跨单位派驻/挂靠智能提示条 -->
+        <div v-if="isCrossCompany(newMemberForm.branchName, newMemberForm.deptName)" class="cross-unit-alert">
+          <el-icon><InfoFilled /></el-icon>
+          <span>
+            <strong>【跨单位派驻/挂靠党员】</strong>
+            该党员人事编制在<strong>【{{ getCompanyNameFromDept(newMemberForm.deptName) }}】</strong>，
+            党组织关系编入<strong>【{{ newMemberForm.branchName }}】</strong>。系统将自动建立跨单位派驻/挂靠档案标记。
+          </span>
+        </div>
+
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="政治面貌*" required>
+            <el-form-item label="政治面貌" required>
               <el-select v-model="newMemberForm.partyStatus" placeholder="政治面貌" style="width: 100%">
                 <el-option label="正式党员" :value="1" />
                 <el-option label="预备党员" :value="2" />
@@ -1686,7 +2040,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="党内职务">
-              <el-select v-model="newMemberForm.partyPost" placeholder="党内职务" style="width: 100%">
+              <el-select v-model="newMemberForm.partyPost" filterable allow-create placeholder="党内职务" style="width: 100%">
                 <el-option label="党总支书记" value="党总支书记" />
                 <el-option label="支部书记" value="党支部书记" />
                 <el-option label="支部副书记" value="支部副书记" />
@@ -1695,6 +2049,10 @@
                 <el-option label="纪检委员" value="支部纪检委员" />
                 <el-option label="党小组长" value="党小组长" />
                 <el-option label="普通党员" value="普通党员" />
+                <el-option label="预备党员" value="预备党员" />
+                <el-option label="发展对象" value="发展对象" />
+                <el-option label="积极分子" value="积极分子" />
+                <el-option label="入党申请人" value="入党申请人" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -1707,23 +2065,10 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="党龄(自动计算)">
+            <el-form-item label="党员党龄折算">
               <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 12px; font-weight: 700; color: #c21c1d; font-size: 13.5px">
                 {{ calculatePartyStandingYears(newMemberForm.joinPartyDate) }} 年
               </div>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="原所在党支部">
-              <el-input v-model="newMemberForm.originBranch" placeholder="转入前所在支部 / 原发展支部" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="转入本支部时间">
-              <el-date-picker v-model="newMemberForm.transferInDate" type="date" value-format="YYYY-MM-DD" placeholder="转入支部日期" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -1735,24 +2080,23 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="转出本支部时间">
-              <el-date-picker v-model="newMemberForm.transferOutDate" type="date" value-format="YYYY-MM-DD" placeholder="若无转出可留空" style="width: 100%" />
+            <el-form-item label="正式转正日期">
+              <el-date-picker v-model="newMemberForm.officialPartyDate" type="date" value-format="YYYY-MM-DD" placeholder="正式党员转正日期" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-row :gutter="16" v-if="newMemberForm.transferOutDate">
-          <el-col :span="24">
-            <el-form-item label="转出目标支部">
-              <el-input v-model="newMemberForm.transferOutBranch" placeholder="如 转出至中共某党委/外单位" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <div class="roster-filing-tip-box" style="margin-bottom: 16px; padding: 10px 14px; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 6px; font-size: 12px; color: #b45309; display: flex; align-items: center; gap: 8px;">
+          <el-icon><InfoFilled /></el-icon>
+          <span><strong>规范提示：</strong>党员组织关系转入、转出（除名）以及党内职务任免，请前往【<strong>党员转接及调整备案</strong>】模块规范办理，系统将自动联动花名册增减与职务变更。</span>
+        </div>
 
         <el-form-item label="国企骨干标签">
-          <el-checkbox v-model="newMemberForm.isFrontline">生产/业务一线骨干</el-checkbox>
-          <el-checkbox v-model="newMemberForm.isTechnicalTalent">数字研发核心技术骨干</el-checkbox>
-          <el-checkbox v-model="newMemberForm.isDualCultivate">列入“双培养”工程</el-checkbox>
+          <div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: center; width: 100%;">
+            <el-checkbox v-model="newMemberForm.isFrontline">生产/业务一线骨干</el-checkbox>
+            <el-checkbox v-model="newMemberForm.isTechnicalTalent">数字研发核心技术骨干</el-checkbox>
+            <el-checkbox v-model="newMemberForm.isDualCultivate">列入“双培养”工程</el-checkbox>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -1831,16 +2175,466 @@
       </template>
     </el-dialog>
 
+    <!-- ============================================== -->
+    <!-- 弹窗 1: 办理组织关系转入弹窗 -->
+    <!-- ============================================== -->
+    <el-dialog 
+      v-model="transferInDialogVisible" 
+      title="办理党员组织关系转入 (自动同步建档至花名册)" 
+      width="820px"
+    >
+      <el-form :model="transferInForm" label-width="140px" class="member-add-form">
+        <el-alert 
+          type="success" 
+          :closable="false" 
+          show-icon 
+          style="margin-bottom: 18px"
+        >
+          <template #title>
+            <strong>联动提示：</strong>转入手续办结后，系统将自动把该党员档案同步写入【党员花名册】，无需重复录入。
+          </template>
+        </el-alert>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="党员姓名" required>
+              <el-input v-model="transferInForm.memberName" placeholder="请输入转入党员姓名" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="员工工号" required>
+              <el-input v-model="transferInForm.workNo" placeholder="如 HH-HS-099" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="身份证号" required>
+              <el-input v-model="transferInForm.idCard" placeholder="18位公民身份证号码" maxlength="18" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="性别/政治面貌" required>
+              <div style="display: flex; gap: 8px; width: 100%">
+                <el-select v-model="transferInForm.gender" style="width: 80px">
+                  <el-option label="男" value="男" />
+                  <el-option label="女" value="女" />
+                </el-select>
+                <el-select v-model="transferInForm.partyStatus" style="flex: 1">
+                  <el-option label="正式党员" :value="1" />
+                  <el-option label="预备党员" :value="2" />
+                </el-select>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="原所在党组织" required>
+              <el-input v-model="transferInForm.fromOrgName" placeholder="如 中共云南省电子信息检验院支部" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="拟转入党支部" required>
+              <el-select 
+                v-model="transferInForm.toOrgName" 
+                :disabled="isBranchAdmin"
+                placeholder="请选择接收党支部" 
+                style="width: 100%"
+                @change="suggestTransferInEmployment"
+              >
+                <el-option label="红数信息支部" value="中共红河红数信息技术服务有限公司支部委员会" />
+                <el-option label="幂次科技支部" value="中共云南幂次科技有限公司支部委员会" />
+                <el-option label="链达科技支部" value="中共红河链达科技有限公司支部委员会" />
+                <el-option label="集团党总支" value="中共红河数据产业集团有限公司总支部委员会" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="企业行政部门" required>
+              <el-select v-model="transferInForm.deptName" placeholder="请选择部门" style="width: 100%">
+                <el-option v-for="dept in getDepartmentOptions(transferInForm.toOrgName)" :key="dept.value" :label="dept.label" :value="dept.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="岗位/党内职务">
+              <div style="display: flex; gap: 8px">
+                <el-input v-model="transferInForm.jobTitle" placeholder="行政职务" style="flex: 1" />
+                <el-select v-model="transferInForm.partyPost" style="width: 120px">
+                  <el-option label="普通党员" value="普通党员" />
+                  <el-option label="支部组织委员" value="支部组织委员" />
+                  <el-option label="支部宣传委员" value="支部宣传委员" />
+                  <el-option label="支部纪检委员" value="支部纪检委员" />
+                  <el-option label="党小组长" value="党小组长" />
+                </el-select>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="介绍信文号" required>
+              <el-input v-model="transferInForm.letterNo" placeholder="如 云信转字〔2026〕第01号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="转接入库日期" required>
+              <el-date-picker v-model="transferInForm.transferDate" type="date" value-format="YYYY-MM-DD" placeholder="办理转接日期" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="党费交至年月">
+              <el-date-picker v-model="transferInForm.duesPaidToDate" type="month" value-format="YYYY-MM" placeholder="已在原单位交至月份" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="联系电话">
+              <el-input v-model="transferInForm.phone" placeholder="手机号码" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item label="转入事由备注">
+          <el-input v-model="transferInForm.transferReason" placeholder="如 业务骨干高层次人才引进调入，已审核入党志愿书档案合格" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="transferInDialogVisible = false">取消</el-button>
+        <el-button type="success" icon="Check" @click="submitTransferIn">
+          确认接收并同步至花名册
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ============================================== -->
+    <!-- 弹窗 2: 办理组织关系转出弹窗 -->
+    <!-- ============================================== -->
+    <el-dialog 
+      v-model="transferOutDialogVisible" 
+      title="办理党员组织关系转出 (自动从花名册除名注销)" 
+      width="780px"
+    >
+      <el-form :model="transferOutForm" label-width="140px" class="member-add-form">
+        <el-alert 
+          type="error" 
+          :closable="false" 
+          show-icon 
+          style="margin-bottom: 18px"
+        >
+          <template #title>
+            <strong>除名警示：</strong>转出手续办结后，该党员将自动从【党员花名册】中除名注销，流转至转接历史归档，请审慎核实！
+          </template>
+        </el-alert>
+
+        <el-form-item label="选择转出党员" required>
+          <el-select 
+            v-model="transferOutForm.selectedWorkNo" 
+            filterable 
+            placeholder="请搜索或选择在册党员姓名 / 工号" 
+            style="width: 100%"
+            @change="handleSelectTransferOutMember"
+          >
+            <el-option 
+              v-for="m in rosterList" 
+              :key="m.workNo" 
+              :label="`${m.name} (${m.workNo}) · ${m.branchName} · ${m.partyPost || '普通党员'}`" 
+              :value="m.workNo" 
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-row :gutter="16" v-if="transferOutForm.selectedWorkNo">
+          <el-col :span="12">
+            <el-form-item label="党员姓名/工号">
+              <el-input :model-value="`${transferOutForm.memberName} (${transferOutForm.workNo})`" disabled />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="现所在党支部">
+              <el-input :model-value="transferOutForm.fromOrgName" disabled />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="24">
+            <el-form-item label="拟转往党组织" required>
+              <el-input v-model="transferOutForm.toOrgName" placeholder="如 中共红河州开发区建设投资党支部 / 中共XX局机关党委" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="介绍信编号" required>
+              <el-input v-model="transferOutForm.letterNo" placeholder="如 红数转字〔2026〕第05号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="转出除名日期" required>
+              <el-date-picker v-model="transferOutForm.transferDate" type="date" value-format="YYYY-MM-DD" placeholder="转出日期" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="党费交至年月">
+              <el-date-picker v-model="transferOutForm.duesPaidToDate" type="month" value-format="YYYY-MM" placeholder="党费交至当前月" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="经办组织员">
+              <el-input v-model="transferOutForm.operatorName" placeholder="经办人姓名" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item label="转出除名原因" required>
+          <el-input 
+            v-model="transferOutForm.transferReason" 
+            type="textarea" 
+            :rows="2" 
+            placeholder="因个人工作调动离职除名 / 退休迁出居住地党支部 / 外调上级单位" 
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="transferOutDialogVisible = false">取消</el-button>
+        <el-button type="danger" icon="Right" @click="submitTransferOut">
+          确认转出并从花名册除名
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ============================================== -->
+    <!-- 弹窗 3: 新增党员党内职务调整备案弹窗 -->
+    <!-- ============================================== -->
+    <el-dialog 
+      v-model="adjustmentDialogVisible" 
+      title="录入党员党内职务调整备案 (自动联动花名册党内职务)" 
+      width="780px"
+    >
+      <el-form :model="adjustmentForm" label-width="140px" class="member-add-form">
+        <el-alert 
+          type="primary" 
+          :closable="false" 
+          show-icon 
+          style="margin-bottom: 18px"
+        >
+          <template #title>
+            <strong>职务联动：</strong>备案录入审核后，系统将自动把新职务同步至花名册中对应党员的“党内职务”，并保留批文号永久备查。
+          </template>
+        </el-alert>
+
+        <el-form-item label="选择任职党员" required>
+          <el-select 
+            v-model="adjustmentForm.selectedWorkNo" 
+            filterable 
+            placeholder="请搜索或选择在册党员姓名 / 工号" 
+            style="width: 100%"
+            @change="handleSelectAdjustmentMember"
+          >
+            <el-option 
+              v-for="m in rosterList" 
+              :key="m.workNo" 
+              :label="`${m.name} (${m.workNo}) · ${m.branchName} · 现职务：${m.partyPost || '普通党员'}`" 
+              :value="m.workNo" 
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-row :gutter="16" v-if="adjustmentForm.selectedWorkNo">
+          <el-col :span="12">
+            <el-form-item label="任职党支部">
+              <el-input :model-value="adjustmentForm.orgName" disabled />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="调整前原职务">
+              <el-input :model-value="adjustmentForm.oldPost || '普通党员'" disabled />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="新任党内职务" required>
+              <el-select v-model="adjustmentForm.newPost" placeholder="请选择新任职务" style="width: 100%">
+                <el-option label="党总支书记" value="党总支书记" />
+                <el-option label="党总支副书记" value="党总支副书记" />
+                <el-option label="党支部书记" value="党支部书记" />
+                <el-option label="支部副书记" value="支部副书记" />
+                <el-option label="支部组织委员" value="支部组织委员" />
+                <el-option label="支部宣传委员" value="支部宣传委员" />
+                <el-option label="支部纪检委员" value="支部纪检委员" />
+                <el-option label="党小组长" value="党小组长" />
+                <el-option label="普通党员 (免职回任)" value="普通党员" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="调整备案类型" required>
+              <el-select v-model="adjustmentForm.adjustType" placeholder="调整类型" style="width: 100%">
+                <el-option label="任职任命" value="任职任命" />
+                <el-option label="支委会选举" value="支委会选举" />
+                <el-option label="分工微调" value="分工微调" />
+                <el-option label="免去职务" value="免去职务" />
+                <el-option label="届满换届" value="届满换届" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="批准文号编号" required>
+              <el-input v-model="adjustmentForm.documentNo" placeholder="如 红数党总任〔2026〕第03号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="任职生效日期" required>
+              <el-date-picker v-model="adjustmentForm.effectiveDate" type="date" value-format="YYYY-MM-DD" placeholder="生效日期" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item label="批准决定单位" required>
+          <el-input v-model="adjustmentForm.approvalUnit" placeholder="如 中共红河数据产业集团有限公司总支部委员会" />
+        </el-form-item>
+
+        <el-form-item label="主要职责分工">
+          <el-input 
+            v-model="adjustmentForm.dutyDescription" 
+            type="textarea" 
+            :rows="2" 
+            placeholder="如 主持党支部全面工作，兼任党支部纪律检查委员职责，强化国企基层党风廉政建设" 
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="adjustmentDialogVisible = false">取消</el-button>
+        <el-button type="primary" icon="Check" @click="submitAdjustment">
+          确认备案并更新花名册职务
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ============================================== -->
+    <!-- 弹窗 4: 组织关系转接介绍信详情凭证弹窗 -->
+    <!-- ============================================== -->
+    <el-dialog 
+      v-model="viewTransferDialogVisible" 
+      title="中国共产党党员组织关系介绍信存根与凭证" 
+      width="680px"
+    >
+      <div v-if="currentTransferView" class="transfer-cert-box">
+        <div class="cert-header">
+          <div class="cert-badge">中共党内凭证存根</div>
+          <h3 class="cert-title">中国共产党党员组织关系转接存根凭证</h3>
+          <div class="cert-no">批复编号：{{ currentTransferView.letterNo }}</div>
+        </div>
+
+        <div class="cert-divider"></div>
+
+        <div class="cert-grid">
+          <div class="cert-row"><span class="cert-lbl">党员姓名：</span><span class="cert-val font-bold">{{ currentTransferView.memberName }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">员工工号：</span><span class="cert-val">{{ currentTransferView.workNo }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">身份证号：</span><span class="cert-val">{{ currentTransferView.idCard }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">政治面貌：</span><span class="cert-val">{{ currentTransferView.partyStatus === 1 ? '中国共产党正式党员' : '中国共产党预备党员' }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">转接方向：</span>
+            <el-tag :type="currentTransferView.transferType === 1 ? 'success' : 'danger'" effect="dark" size="small">
+              {{ currentTransferView.transferType === 1 ? '组织关系转入' : '组织关系转出' }}
+            </el-tag>
+          </div>
+          <div class="cert-row"><span class="cert-lbl">转出党组织：</span><span class="cert-val text-red">{{ currentTransferView.fromOrgName }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">接收党组织：</span><span class="cert-val text-blue font-bold">{{ currentTransferView.toOrgName }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">转接生效日期：</span><span class="cert-val">{{ currentTransferView.transferDate }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">党费交纳至：</span><span class="cert-val">{{ currentTransferView.duesPaidToDate || '当月已结清' }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">转接原因说明：</span><span class="cert-val">{{ currentTransferView.transferReason }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">经办人：</span><span class="cert-val">{{ currentTransferView.operatorName }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">备注说明：</span><span class="cert-val">{{ currentTransferView.remark || '档案核查完整无误，已归档' }}</span></div>
+        </div>
+
+        <div class="cert-seal-box">
+          <div class="seal-party-text">中共红河数据产业集团有限公司总支部委员会</div>
+          <div class="seal-date-text">{{ currentTransferView.transferDate }}</div>
+          <div class="cert-red-stamp">组织关系<br>专用章</div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="viewTransferDialogVisible = false">关闭</el-button>
+        <el-button type="primary" icon="Printer" @click="printTransferCert">打印介绍信凭证</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ============================================== -->
+    <!-- 弹窗 5: 干部党内职务调整任免备案登记表详情弹窗 -->
+    <!-- ============================================== -->
+    <el-dialog 
+      v-model="viewAdjustmentDialogVisible" 
+      title="党员领导干部党内职务调整任免备案表" 
+      width="680px"
+    >
+      <div v-if="currentAdjustmentView" class="transfer-cert-box">
+        <div class="cert-header">
+          <div class="cert-badge bg-gold">干部党内任免</div>
+          <h3 class="cert-title">党内职务调整备案登记卡</h3>
+          <div class="cert-no">正式批文号：{{ currentAdjustmentView.documentNo }}</div>
+        </div>
+
+        <div class="cert-divider"></div>
+
+        <div class="cert-grid">
+          <div class="cert-row"><span class="cert-lbl">党员姓名：</span><span class="cert-val font-bold">{{ currentAdjustmentView.memberName }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">员工工号：</span><span class="cert-val">{{ currentAdjustmentView.workNo }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">任职党组织：</span><span class="cert-val font-bold">{{ currentAdjustmentView.orgName }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">原党内职务：</span><span class="cert-val text-muted">{{ currentAdjustmentView.oldPost || '普通党员' }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">新任党内职务：</span>
+            <el-tag type="danger" effect="dark" size="small" style="font-weight: 700">
+              {{ currentAdjustmentView.newPost }}
+            </el-tag>
+          </div>
+          <div class="cert-row"><span class="cert-lbl">调整类别：</span><span class="cert-val">{{ currentAdjustmentView.adjustType }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">批准机关：</span><span class="cert-val text-red font-bold">{{ currentAdjustmentView.approvalUnit }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">任职生效日期：</span><span class="cert-val">{{ currentAdjustmentView.effectiveDate }}</span></div>
+          <div class="cert-row full-width"><span class="cert-lbl">主要职责分工：</span><span class="cert-val">{{ currentAdjustmentView.dutyDescription || '主持支部班子全面工作，抓好思想政治与党风廉政建设' }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">备案经办人：</span><span class="cert-val">{{ currentAdjustmentView.operatorName }}</span></div>
+          <div class="cert-row"><span class="cert-lbl">名册联动状态：</span><span class="cert-val text-green font-bold"><el-icon><Check /></el-icon> 已同步花名册</span></div>
+        </div>
+
+        <div class="cert-seal-box">
+          <div class="seal-party-text">{{ currentAdjustmentView.approvalUnit }}</div>
+          <div class="seal-date-text">{{ currentAdjustmentView.effectiveDate }}</div>
+          <div class="cert-red-stamp">党内职务<br>备案章</div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="viewAdjustmentDialogVisible = false">关闭</el-button>
+        <el-button type="primary" icon="Printer" @click="printAdjustmentCert">打印任免备案卡</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 记录/修改组织生活会议弹窗 -->
     <el-dialog 
       v-model="addMeetingDialogVisible" 
       :title="isEditingMeeting ? `【修改 / 完善会议记录】${newMeetingForm.title || ''}` : '发起 / 记录支部“三会一课”与主题党日'" 
-      width="680px"
+      width="760px"
     >
-      <el-form :model="newMeetingForm" label-width="120px">
+      <el-form :model="newMeetingForm" label-width="135px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="所属党支部*" required>
+            <el-form-item label="所属党支部" required>
               <!-- 若为支部管理员，强锁本支部且禁用修改，严禁给其他支部代录组织生活 -->
               <el-select 
                 v-model="newMeetingForm.branchName" 
@@ -1855,7 +2649,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="组织生活类型*" required>
+            <el-form-item label="组织生活类型" required>
               <el-select v-model="newMeetingForm.meetingType" style="width: 100%">
                 <el-option label="支委会 (每月至少1次)" :value="1" />
                 <el-option label="支部党员大会 (每季度1次)" :value="2" />
@@ -1866,13 +2660,13 @@
           </el-col>
         </el-row>
 
-        <el-form-item label="会议主要议题*" required>
+        <el-form-item label="会议主要议题" required>
           <el-input v-model="newMeetingForm.title" placeholder="如 讨论接收王建国同志为预备党员 / 筑牢网络安全底座主题党日" />
         </el-form-item>
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="召开日期*" required>
+            <el-form-item label="召开日期" required>
               <el-date-picker v-model="newMeetingForm.date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
             </el-form-item>
           </el-col>
@@ -1885,7 +2679,7 @@
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="主持人*">
+            <el-form-item label="主持人" required>
               <el-input v-model="newMeetingForm.moderator" placeholder="如 李卫民 (支部书记)" />
             </el-form-item>
           </el-col>
@@ -2115,12 +2909,12 @@
     <el-dialog 
       v-model="honorDialogVisible" 
       :title="isEditingHonor ? `【修改奖惩/荣誉记录】${newHonorForm.title || ''}` : '登记组织或个人奖惩/荣誉'" 
-      width="680px"
+      width="760px"
     >
-      <el-form :model="newHonorForm" label-width="130px">
+      <el-form :model="newHonorForm" label-width="135px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="奖惩主体分类*" required>
+            <el-form-item label="奖惩主体分类" required>
               <el-radio-group v-model="newHonorForm.category" @change="handleHonorCategoryChange">
                 <el-radio :label="2">组织奖惩/荣誉</el-radio>
                 <el-radio :label="1">个人奖惩/荣誉</el-radio>
@@ -2128,7 +2922,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="奖惩性质*" required>
+            <el-form-item label="奖惩性质" required>
               <el-radio-group v-model="newHonorForm.recordType">
                 <el-radio :label="1">荣誉表彰</el-radio>
                 <el-radio :label="2">纪律处分/诫勉</el-radio>
@@ -2137,13 +2931,13 @@
           </el-col>
         </el-row>
 
-        <el-form-item label="奖惩/表彰名称*" required>
+        <el-form-item label="奖惩/表彰名称" required>
           <el-input v-model="newHonorForm.title" placeholder="如 云南省国资委先进基层党组织 / 云南省数字技术工匠" />
         </el-form-item>
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item :label="newHonorForm.category === 2 ? '获奖党支部*' : '党员姓名*'" required>
+            <el-form-item :label="newHonorForm.category === 2 ? '获奖党支部' : '党员姓名'" required>
               <!-- 组织荣誉：若为支部管理员，直接强锁本支部且禁用修改，严禁给其他支部申报组织表彰/处分 -->
               <el-select 
                 v-if="newHonorForm.category === 2" 
@@ -2177,7 +2971,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="所属党组织*" required>
+            <el-form-item label="所属党组织" required>
               <!-- 若为支部管理员，强锁本支部且禁用修改 -->
               <el-select 
                 v-model="newHonorForm.orgName" 
@@ -2196,7 +2990,7 @@
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="表彰/处分级别*" required>
+            <el-form-item label="表彰/处分级别" required>
               <el-select v-model="newHonorForm.level" placeholder="请选择级别" style="width: 100%">
                 <el-option label="国家级" value="国家级" />
                 <el-option label="省部级" value="省部级" />
@@ -2207,7 +3001,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="决定日期*" required>
+            <el-form-item label="决定日期" required>
               <el-date-picker v-model="newHonorForm.recordDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
             </el-form-item>
           </el-col>
@@ -2242,11 +3036,11 @@
     <el-dialog 
       v-model="noticeDialogVisible" 
       title="【发布党建通知与合规指令】" 
-      width="640px" 
+      width="700px" 
       destroy-on-close
     >
-      <el-form label-width="110px">
-        <el-form-item label="通知类别*" required>
+      <el-form label-width="125px">
+        <el-form-item label="通知类别" required>
           <el-select v-model="newNoticeForm.noticeType" style="width: 100%">
             <el-option label="合规时限预警 (红线催办)" value="DEADLINE_WARNING" />
             <el-option label="转正到期催办 (预备党员)" value="TRANS_PROBATION" />
@@ -2255,7 +3049,7 @@
             <el-option label="党建业务通知 (综合性)" value="REGULAR" />
           </el-select>
         </el-form-item>
-        <el-form-item label="触达渠道*" required>
+        <el-form-item label="触达渠道" required>
           <el-select v-model="newNoticeForm.channelCode" style="width: 100%">
             <el-option v-for="ch in noticeChannels.filter(item => item.enabled === 1)" :key="ch.channelCode" :label="ch.channelName" :value="ch.channelCode" />
           </el-select>
@@ -2265,14 +3059,14 @@
             <el-option v-for="user in noticeRecipients" :key="user.id" :label="`${user.realName}（${user.workNo}）`" :value="user.id" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="!newNoticeForm.receiverId && newNoticeForm.channelCode !== 'IN_APP'" label="接收地址*" required>
+        <el-form-item v-if="!newNoticeForm.receiverId && newNoticeForm.channelCode !== 'IN_APP'" label="接收地址" required>
           <el-input v-model="newNoticeForm.receiverTarget" :placeholder="noticeTargetHint(newNoticeForm.channelCode)" />
         </el-form-item>
         <el-alert title="外部通知显示“已受理”表示服务商接收请求，实际送达请结合服务商回执核对。" type="info" :closable="false" style="margin-bottom: 16px" />
-        <el-form-item label="通知标题*" required>
+        <el-form-item label="通知标题" required>
           <el-input v-model="newNoticeForm.title" placeholder="如 【时限红线】入党谈话即将到期请抓紧推进" />
         </el-form-item>
-        <el-form-item label="通知正文内容*" required>
+        <el-form-item label="通知正文内容" required>
           <el-input v-model="newNoticeForm.content" type="textarea" :rows="4" placeholder="填写完整通知事项、纪律要求、参会要求或时间红线说明..." />
         </el-form-item>
       </el-form>
@@ -2352,35 +3146,35 @@
     <el-dialog 
       v-model="userDialogVisible" 
       :title="isEditingUser ? '【编辑党务账号信息】' : '【新建党务系统账号】'" 
-      width="600px" 
+      width="680px" 
       destroy-on-close
     >
-      <el-form label-width="110px">
+      <el-form label-width="125px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="登录账号*" required>
+            <el-form-item label="登录账号" required>
               <el-input v-model="userForm.username" :disabled="isEditingUser" placeholder="英文小写账号" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="真实姓名*" required>
+            <el-form-item label="真实姓名" required>
               <el-input v-model="userForm.realName" placeholder="党员或干部姓名" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="企业工号*" required>
+            <el-form-item label="企业工号" required>
               <el-input v-model="userForm.workNo" placeholder="如 HH-JT-009" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="联系电话*" required>
+            <el-form-item label="联系电话" required>
               <el-input v-model="userForm.phone" placeholder="手机号 (接收短信通知)" />
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="所属党组织*" required>
+        <el-form-item label="所属党组织" required>
           <el-select v-model="userForm.orgName" style="width: 100%">
             <el-option label="红河红数信息技术服务有限公司支部委员会" value="中共红河红数信息技术服务有限公司支部委员会" />
             <el-option label="云南幂次科技有限公司支部委员会" value="中共云南幂次科技有限公司支部委员会" />
@@ -2388,7 +3182,7 @@
             <el-option label="红河数据产业集团有限公司总支部委员会" value="中共红河数据产业集团有限公司总支部委员会" />
           </el-select>
         </el-form-item>
-        <el-form-item label="赋予角色*" required>
+        <el-form-item label="赋予角色" required>
           <el-select v-model="userForm.roleCode" style="width: 100%" @change="handleUserFormRoleChange">
             <el-option v-for="r in sysRoles" :key="r.id" :label="r.roleName" :value="r.roleCode" />
           </el-select>
@@ -2437,28 +3231,32 @@
       </template>
     </el-dialog>
 
-    <!-- 弹窗 12: 新建入党申请人建档弹窗 -->
+    <!-- 弹窗 12: 入党申请人建档弹窗 -->
     <el-dialog 
       v-model="addApplicantDialogVisible" 
-      title="【新建入党申请人建档】录入第 1 步《递交入党申请书》" 
-      width="680px" 
+      title="【入党申请人建档】录入第 1 步《递交入党申请书》" 
+      width="820px" 
       destroy-on-close
     >
       <el-alert
         title="规程提醒：申请人须年满18周岁、自愿提出书面亲笔申请；支部收到申请后须在 1 个月内指派专人完成初次政治谈话并归档。"
         type="warning"
         :closable="false"
-        style="margin-bottom: 16px"
+        style="margin-bottom: 12px"
       />
-      <el-form :model="newApplicantForm" label-width="120px">
+      <div class="roster-filing-tip-box" style="margin-bottom: 16px; padding: 10px 14px; background: #eff6ff; border: 1px dashed #3b82f6; border-radius: 6px; font-size: 12px; color: #1d4ed8; display: flex; align-items: center; gap: 8px;">
+        <el-icon><InfoFilled /></el-icon>
+        <span><strong>全流程联动说明：</strong>立卷建档后系统将自动为申请人开通工号系统账号（初始密码123456），并纳入【发展党员全景工作台】开启 25 步规范化考察；待全部 25 步考察合规并经党总支审批转正后，将自动正式同步入库至【党员花名册】。</span>
+      </div>
+      <el-form :model="newApplicantForm" label-width="140px" class="member-add-form">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="申请人姓名*" required>
+            <el-form-item label="申请人姓名" required>
               <el-input v-model="newApplicantForm.name" placeholder="员工真实姓名" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="企业工号*" required>
+            <el-form-item label="企业工号" required>
               <el-input v-model="newApplicantForm.workNo" placeholder="如 HH-HS-088" />
             </el-form-item>
           </el-col>
@@ -2466,7 +3264,20 @@
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="性别 / 年龄*" required>
+            <el-form-item label="公民身份证号" required>
+              <el-input v-model="newApplicantForm.idCard" placeholder="18位公民身份证号" maxlength="18" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="联系电话" required>
+              <el-input v-model="newApplicantForm.phone" placeholder="手机号码（用于通知与账号绑定）" maxlength="11" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="性别 / 年龄" required>
               <div style="display: flex; gap: 10px; width: 100%;">
                 <el-select v-model="newApplicantForm.gender" style="width: 90px">
                   <el-option label="男" value="男" />
@@ -2477,7 +3288,30 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="最高学历*" required>
+            <el-form-item label="民族">
+              <el-select v-model="newApplicantForm.nation" placeholder="请选择民族" style="width: 100%">
+                <el-option label="汉族" value="汉族" />
+                <el-option label="彝族" value="彝族" />
+                <el-option label="哈尼族" value="哈尼族" />
+                <el-option label="白族" value="白族" />
+                <el-option label="傣族" value="傣族" />
+                <el-option label="苗族" value="苗族" />
+                <el-option label="壮族" value="壮族" />
+                <el-option label="回族" value="回族" />
+                <el-option label="其他少数民族" value="其他少数民族" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="籍贯">
+              <el-input v-model="newApplicantForm.nativePlace" placeholder="如 云南蒙自 / 云南昆明" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="最高学历" required>
               <el-select v-model="newApplicantForm.education" placeholder="最高学历" style="width: 100%">
                 <el-option label="大专" value="大专" />
                 <el-option label="大学本科" value="大学本科" />
@@ -2490,7 +3324,7 @@
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="所属党支部*" required>
+            <el-form-item label="所属党支部" required>
               <!-- 若为支部管理员，强锁本支部且禁用修改，杜绝跨支部建档 -->
               <el-select 
                 v-model="newApplicantForm.branchName" 
@@ -2506,17 +3340,63 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="企业行政部门*" required>
-              <el-select v-model="newApplicantForm.deptName" placeholder="请选择部门" style="width: 100%" @change="suggestJobTitle(newApplicantForm)">
-                <el-option v-for="dept in getDepartmentOptions(newApplicantForm.branchName)" :key="dept.value" :label="dept.label" :value="dept.value" />
+            <el-form-item label="企业行政部门" required>
+              <el-select 
+                v-model="newApplicantForm.deptName" 
+                filterable 
+                placeholder="请选择行政部门（支持跨公司选择）" 
+                style="width: 100%" 
+                @change="suggestJobTitle(newApplicantForm)"
+              >
+                <el-option-group 
+                  v-for="group in departmentGroups" 
+                  :key="group.companyName" 
+                  :label="group.companyName"
+                >
+                  <el-option 
+                    v-for="dept in group.options" 
+                    :key="dept.value" 
+                    :label="dept.value" 
+                    :value="dept.value" 
+                  />
+                </el-option-group>
               </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 跨单位派驻/挂靠智能提示条 -->
+        <div v-if="isCrossCompany(newApplicantForm.branchName, newApplicantForm.deptName)" class="cross-unit-alert">
+          <el-icon><InfoFilled /></el-icon>
+          <span>
+            <strong>【跨单位派驻/挂靠档案】</strong>
+            该同志人事关系在<strong>【{{ getCompanyNameFromDept(newApplicantForm.deptName) }}】</strong>，
+            党组织关系编入<strong>【{{ newApplicantForm.branchName }}】</strong>。系统将自动建立跨单位派驻/挂靠标记并同步花名册。
+          </span>
+        </div>
+
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="岗位职务" required>
+              <el-input v-model="newApplicantForm.jobTitle" placeholder="请输入岗位职务，可修改推荐岗位" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="参加工作时间">
+              <el-date-picker 
+                v-model="newApplicantForm.workDate" 
+                type="date" 
+                value-format="YYYY-MM-DD" 
+                placeholder="入职或参加工作日期"
+                style="width: 100%" 
+              />
             </el-form-item>
           </el-col>
         </el-row>
 
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="递交申请日期*" required>
+            <el-form-item label="递交申请日期" required>
               <el-date-picker 
                 v-model="newApplicantForm.applyDate" 
                 type="date" 
@@ -2525,17 +3405,14 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="国企骨干属性">
-              <el-checkbox v-model="newApplicantForm.isFrontline">生产一线</el-checkbox>
-              <el-checkbox v-model="newApplicantForm.isTechnicalTalent">技术骨干</el-checkbox>
-              <el-checkbox v-model="newApplicantForm.isDualCultivate">“双培养”</el-checkbox>
-            </el-form-item>
-          </el-col>
         </el-row>
 
-        <el-form-item label="岗位职务*" required>
-          <el-input v-model="newApplicantForm.jobTitle" placeholder="请输入岗位职务，可修改推荐岗位" />
+        <el-form-item label="国企骨干属性">
+          <div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: center; width: 100%;">
+            <el-checkbox v-model="newApplicantForm.isFrontline">生产/业务一线骨干</el-checkbox>
+            <el-checkbox v-model="newApplicantForm.isTechnicalTalent">数字研发核心技术骨干</el-checkbox>
+            <el-checkbox v-model="newApplicantForm.isDualCultivate">列入“双培养”工程</el-checkbox>
+          </div>
         </el-form-item>
 
         <el-form-item label="书面申请书原件">
@@ -2551,7 +3428,7 @@
       </el-form>
       <template #footer>
         <el-button @click="addApplicantDialogVisible = false">取消</el-button>
-        <el-button type="primary" icon="Check" @click="submitCreateApplicant">确认立卷建档并列入名册</el-button>
+        <el-button type="primary" icon="Check" @click="submitCreateApplicant">确认立卷建档</el-button>
       </template>
     </el-dialog>
   </div>
@@ -2563,7 +3440,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import BigScreenView from './components/BigScreenView.vue'
 import LoginView from './components/LoginView.vue'
 import PartyEmblem from './components/PartyEmblem.vue'
-import { getCompanyByBranch, getDepartmentOptions } from './data/companyDepartments.js'
+import { getCompanyByBranch, getDepartmentOptions, getAllDepartmentGroupOptions, isCrossCompany, getCompanyNameFromDept } from './data/companyDepartments.js'
 import { apiRequest, apiSession, clearApiSession, demoEnabled } from './api.js'
 import { NOTICE_CHANNEL_META, NOTICE_TYPES, noticeStatus } from './data/noticeChannels.js'
 import { 
@@ -2578,6 +3455,8 @@ import {
   MOCK_HONOR_PUNISHMENT_LIST,
   MOCK_SYS_ROLES,
   MOCK_SYS_USERS,
+  MOCK_RELATION_TRANSFERS,
+  MOCK_POSITION_ADJUSTMENTS,
 } from './data/mockData.js'
 
 // 基础模式、大屏状态与登录态
@@ -2695,12 +3574,8 @@ function handleLoginSuccess(payload) {
   currentRole.value = payload.role
   isLoggedIn.value = true
 
-  // 登录后根据角色智能跳转其首要权限工作台
-  if (currentRole.value === 'sys_admin') {
-    activeTab.value = 'users'
-  } else {
-    activeTab.value = 'workbench'
-  }
+  // 统一固定登录后默认进入【发展党员全景工作台】
+  activeTab.value = 'workbench'
 }
 
 function handleLogout() {
@@ -2804,21 +3679,39 @@ function goToNoticeCenter() {
   ElMessage.info('已为您切换至【党建通知中心与多渠道】管理页')
 }
 
+// 全集团所有法人单位与行政部门分组（支持人在A公司、党组织在B支部的跨单位自由选择）
+const departmentGroups = getAllDepartmentGroupOptions()
+
 // ==========================================
 // 1. 发展党员工作台与新建申请人业务逻辑
 // ==========================================
 function resetEmployment(form) {
-  form.deptName = getDepartmentOptions(form.branchName)[0]?.value || ''
-  suggestJobTitle(form)
+  // 如果尚未选择部门，或者需要默认推荐，带出支部所在公司默认部门
+  if (!form.deptName) {
+    form.deptName = getDepartmentOptions(form.branchName)[0]?.value || ''
+    suggestJobTitle(form)
+  }
 }
 
 function suggestJobTitle(form) {
-  form.jobTitle = getDepartmentOptions(form.branchName).find(dept => dept.value === form.deptName)?.jobTitle || ''
+  if (!form.deptName) return
+  // 先从该支部对应公司寻找建议岗位
+  let found = getDepartmentOptions(form.branchName).find(dept => dept.value === form.deptName)
+  // 若为跨公司选择的部门，从全集团部门分组中匹配对应建议岗位
+  if (!found) {
+    for (const group of departmentGroups) {
+      found = group.options.find(dept => dept.value === form.deptName)
+      if (found) break
+    }
+  }
+  if (found?.jobTitle) {
+    form.jobTitle = found.jobTitle
+  }
 }
 
 function validateEmployment(form) {
-  if (!getDepartmentOptions(form.branchName).some(dept => dept.value === form.deptName)) {
-    ElMessage.warning('请选择所属公司的实际行政部门！')
+  if (!form.deptName || !form.deptName.trim()) {
+    ElMessage.warning('请选择人事所属单位及行政部门！')
     return false
   }
   if (!form.jobTitle?.trim()) {
@@ -2833,12 +3726,17 @@ const addApplicantDialogVisible = ref(false)
 const newApplicantForm = ref({
   name: '',
   workNo: '',
+  idCard: '',
+  phone: '',
   gender: '男',
   age: 26,
+  nation: '汉族',
+  nativePlace: '',
   education: '大学本科',
   branchName: '中共红河红数信息技术服务有限公司支部委员会',
   deptName: '',
   jobTitle: '',
+  workDate: '2023-07-01',
   applyDate: new Date().toISOString().slice(0, 10),
   isFrontline: true,
   isTechnicalTalent: true,
@@ -2885,12 +3783,17 @@ function openAddDialog() {
   newApplicantForm.value = {
     name: '',
     workNo: 'HH-' + (Math.floor(Math.random() * 890 + 100)),
+    idCard: '',
+    phone: '',
     gender: '男',
     age: 26,
+    nation: '汉族',
+    nativePlace: '云南红河',
     education: '大学本科',
     branchName: defaultBranch,
     deptName: '',
     jobTitle: '',
+    workDate: '2023-07-01',
     applyDate: new Date().toISOString().slice(0, 10),
     isFrontline: true,
     isTechnicalTalent: true,
@@ -2907,6 +3810,14 @@ function submitCreateApplicant() {
   }
   if (!newApplicantForm.value.workNo.trim()) {
     ElMessage.warning('请输入员工工号！')
+    return
+  }
+  if (!newApplicantForm.value.idCard.trim() || newApplicantForm.value.idCard.trim().length !== 18) {
+    ElMessage.warning('请输入完整的18位公民身份证号码！')
+    return
+  }
+  if (!newApplicantForm.value.phone.trim()) {
+    ElMessage.warning('请输入联系电话（手机号码）！')
     return
   }
   if (!validateEmployment(newApplicantForm.value)) return
@@ -2927,10 +3838,15 @@ function submitCreateApplicant() {
     id: newId,
     name: newApplicantForm.value.name.trim(),
     workNo: newApplicantForm.value.workNo.trim(),
+    idCard: newApplicantForm.value.idCard.trim(),
+    phone: newApplicantForm.value.phone.trim(),
     gender: newApplicantForm.value.gender,
     age: newApplicantForm.value.age,
+    nation: newApplicantForm.value.nation || '汉族',
+    nativePlace: newApplicantForm.value.nativePlace || '',
     deptName: newApplicantForm.value.deptName.trim(),
     jobTitle: newApplicantForm.value.jobTitle.trim(),
+    workDate: newApplicantForm.value.workDate || '',
     education: newApplicantForm.value.education,
     branchId: getCompanyByBranch(newApplicantForm.value.branchName).orgId,
     branchName: newApplicantForm.value.branchName,
@@ -2961,39 +3877,10 @@ function submitCreateApplicant() {
     ]
   }
 
-  // 1. 注入发展党员工作台列表
+  // 1. 注入发展党员工作台列表 (归入阶段1全流程管理)
   membersList.value.unshift(applicantRecord)
 
-  // 2. 同步登记入花名册（政治面貌：入党申请人）
-  rosterList.value.unshift({
-    id: newId,
-    name: applicantRecord.name,
-    workNo: applicantRecord.workNo,
-    idCard: '532501' + (1990 + Math.floor(Math.random() * 12)) + '0101' + Math.floor(Math.random() * 8999 + 1000),
-    gender: applicantRecord.gender,
-    age: applicantRecord.age,
-    branchName: applicantRecord.branchName,
-    deptName: applicantRecord.deptName,
-    jobTitle: applicantRecord.jobTitle,
-    partyStatus: 5, // 5: 入党申请人
-    partyPost: '入党申请人',
-    partyStandingYears: 0,
-    joinPartyDate: null,
-    officialPartyDate: null,
-    duesStatus: 1,
-    nationalCode: '53250100' + Math.floor(Math.random() * 89999999 + 10000000),
-    studyHours: 0,
-    studyTarget: 40,
-    originBranch: '',
-    transferInDate: applicantRecord.applyDate,
-    transferOutDate: null,
-    transferOutBranch: '',
-    isFrontline: applicantRecord.isFrontline,
-    isTechnicalTalent: applicantRecord.isTechnicalTalent,
-    isDualCultivate: applicantRecord.isDualCultivate
-  })
-
-  // 3. 生产级账号联动：自动为新申请人开通系统登录账号 (工号为账号，弱密123456，标记强制改密)
+  // 2. 账号系统联动：自动为新申请人开通系统登录账号 (工号为账号，弱密123456，标记强制改密，绑定录入手机号)
   const existingUserIdx = sysUsers.value.findIndex(u => u.workNo === applicantRecord.workNo)
   if (existingUserIdx === -1) {
     sysUsers.value.unshift({
@@ -3003,7 +3890,7 @@ function submitCreateApplicant() {
       mustChangePwd: true, // 首次登录强制改密
       realName: applicantRecord.name,
       workNo: applicantRecord.workNo,
-      phone: '139' + Math.floor(Math.random() * 89999999 + 10000000),
+      phone: applicantRecord.phone,
       email: `${applicantRecord.workNo.toLowerCase()}@honghe-data.com`,
       orgId: applicantRecord.branchId || 2,
       orgName: applicantRecord.branchName,
@@ -3015,8 +3902,18 @@ function submitCreateApplicant() {
     })
   }
 
+  // 3. 花名册系统联动：据实同步录入【党员花名册】，政治面貌记为【入党申请人】（partyStatus: 5）
+  syncMemberToRoster(applicantRecord, 5, {
+    partyPost: '入党申请人',
+    idCard: applicantRecord.idCard,
+    phone: applicantRecord.phone,
+    nation: applicantRecord.nation,
+    nativePlace: applicantRecord.nativePlace,
+    workDate: applicantRecord.workDate
+  })
+
   addApplicantDialogVisible.value = false
-  ElMessage.success(`【${applicantRecord.name}】同志建档成功！已自动为其开通系统账号（工号：${applicantRecord.workNo}，初始密码 123456，首次登录须改密）。`)
+  ElMessage.success(`【${applicantRecord.name}】同志建档成功！已纳入【发展党员全景工作台】开启 25 步全流程培养考察，已据实同步入库【党员花名册】（政治面貌：入党申请人），并为其自动开通系统账号（工号：${applicantRecord.workNo}，初始密码 123456）。后续随着培养阶段推进，花名册状态将实时联动升级！`)
 }
 
 function filterByStage(stageId) {
@@ -3034,6 +3931,64 @@ function resetFilters() {
 // 2. 所有党员花名册逻辑与录入导入
 // ==========================================
 const rosterList = ref([...ALL_MEMBERS_ROSTER])
+
+// 党员花名册与发展流程据实同步函数 (覆盖发展全生命周期：申请人 -> 积极分子 -> 发展对象 -> 预备党员 -> 正式党员)
+function syncMemberToRoster(mem, status, extra = {}) {
+  const existRoster = rosterList.value.find(r => r.workNo === mem.workNo)
+  const statusPostMap = {
+    5: '入党申请人',
+    4: '积极分子',
+    3: '发展对象',
+    2: '预备党员',
+    1: '普通党员'
+  }
+  const postName = extra.partyPost || (existRoster && existRoster.partyPost && !['入党申请人', '积极分子', '发展对象', '预备党员', '普通党员'].includes(existRoster.partyPost) ? existRoster.partyPost : (statusPostMap[status] || '入党申请人'))
+
+  if (existRoster) {
+    existRoster.partyStatus = status
+    existRoster.partyPost = postName
+    if (extra.joinPartyDate) existRoster.joinPartyDate = extra.joinPartyDate
+    if (extra.officialPartyDate) existRoster.officialPartyDate = extra.officialPartyDate
+    if (extra.idCard && !existRoster.idCard) existRoster.idCard = extra.idCard
+    if (extra.phone && !existRoster.phone) existRoster.phone = extra.phone
+    if (extra.nation && !existRoster.nation) existRoster.nation = extra.nation
+    if (extra.nativePlace && !existRoster.nativePlace) existRoster.nativePlace = extra.nativePlace
+    if (extra.workDate && !existRoster.workDate) existRoster.workDate = extra.workDate
+    if (extra.jobTitle) existRoster.jobTitle = extra.jobTitle
+    if (extra.deptName) existRoster.deptName = extra.deptName
+    if (extra.branchName) existRoster.branchName = extra.branchName
+  } else {
+    rosterList.value.unshift({
+      id: Date.now() + Math.floor(Math.random() * 100),
+      name: mem.name,
+      workNo: mem.workNo,
+      idCard: mem.idCard || extra.idCard || ('532501199' + Math.floor(Math.random() * 89000000 + 10000000)),
+      phone: mem.phone || extra.phone || '',
+      nation: mem.nation || extra.nation || '汉族',
+      nativePlace: mem.nativePlace || extra.nativePlace || '',
+      workDate: mem.workDate || extra.workDate || '',
+      education: mem.education || '大学本科',
+      gender: mem.gender || '男',
+      age: mem.age || 28,
+      branchName: mem.branchName,
+      deptName: mem.deptName,
+      jobTitle: mem.jobTitle,
+      partyStatus: status,
+      partyPost: postName,
+      partyStandingYears: 0,
+      joinPartyDate: extra.joinPartyDate || null,
+      officialPartyDate: extra.officialPartyDate || null,
+      duesStatus: 1,
+      nationalCode: '53250100' + Math.floor(Math.random() * 89999999 + 10000000),
+      studyHours: status === 1 ? 40 : (status === 2 ? 35 : (status === 3 ? 30 : 20)),
+      studyTarget: 40,
+      isFrontline: mem.isFrontline || false,
+      isTechnicalTalent: mem.isTechnicalTalent || false,
+      isDualCultivate: mem.isDualCultivate || false
+    })
+  }
+}
+
 const rosterSearchKeyword = ref('')
 const rosterBranchFilter = ref('')
 const rosterStatusFilter = ref('')
@@ -3444,6 +4399,511 @@ function confirmBatchImportRoster() {
   parsedRosterPreviewList.value = []
   importRosterDialogVisible.value = false
   ElMessage.success(`批量导入成功！已将 ${count} 位党员录入花名册并自动开通个人登录账号（工号为账号，初始弱密 123456，首次登录强制改密）。`)
+}
+
+// ==========================================
+// 2.5 党员转接及调整备案业务逻辑 (转入/转出联动花名册 + 职务调整备案联动职务)
+// ==========================================
+const transferActiveSubTab = ref('transfer') // 'transfer' | 'adjustment'
+
+// --- 子模块 1: 党员组织关系转接记录 ---
+const transfersList = ref([...MOCK_RELATION_TRANSFERS])
+const transferSearchKeyword = ref('')
+const transferTypeFilter = ref('')
+const transferBranchFilter = ref('')
+
+const filteredTransfersList = computed(() => {
+  return transfersList.value.filter(t => {
+    // 四级数据范围限制：支部管理员仅查看涉及本支部的转接记录
+    if (currentRole.value === 'branch_admin_hs') {
+      const isHs = (t.fromOrgName && t.fromOrgName.includes('红数')) || (t.toOrgName && t.toOrgName.includes('红数'))
+      if (!isHs) return false
+    }
+    if (currentRole.value === 'branch_admin_mc') {
+      const isMc = (t.fromOrgName && t.fromOrgName.includes('幂次')) || (t.toOrgName && t.toOrgName.includes('幂次'))
+      if (!isMc) return false
+    }
+    if (currentRole.value === 'branch_admin_ld') {
+      const isLd = (t.fromOrgName && t.fromOrgName.includes('链达')) || (t.toOrgName && t.toOrgName.includes('链达'))
+      if (!isLd) return false
+    }
+    if (currentRole.value === 'party_member' && t.workNo !== (currentUser.value?.workNo || 'HH-HS-012')) {
+      return false
+    }
+
+    if (transferTypeFilter.value !== '' && t.transferType !== transferTypeFilter.value) return false
+    if (transferBranchFilter.value) {
+      const hitBranch = (t.fromOrgName && t.fromOrgName === transferBranchFilter.value) || 
+                        (t.toOrgName && t.toOrgName === transferBranchFilter.value)
+      if (!hitBranch) return false
+    }
+    if (transferSearchKeyword.value) {
+      const kw = transferSearchKeyword.value.toLowerCase()
+      const matchName = (t.memberName || '').toLowerCase().includes(kw)
+      const matchNo = (t.workNo || '').toLowerCase().includes(kw)
+      const matchLetter = (t.letterNo || '').toLowerCase().includes(kw)
+      const matchFrom = (t.fromOrgName || '').toLowerCase().includes(kw)
+      const matchTo = (t.toOrgName || '').toLowerCase().includes(kw)
+      if (!matchName && !matchNo && !matchLetter && !matchFrom && !matchTo) return false
+    }
+    return true
+  })
+})
+
+const transferInCount = computed(() => transfersList.value.filter(t => t.transferType === 1).length)
+const transferOutCount = computed(() => transfersList.value.filter(t => t.transferType === 2).length)
+
+function resetTransferFilters() {
+  transferSearchKeyword.value = ''
+  transferTypeFilter.value = ''
+  transferBranchFilter.value = ''
+}
+
+function exportTransferExcel() {
+  ElMessage.success(`已成功导出【中国共产党党员组织关系转接工作台账】(共 ${transfersList.value.length} 条记录，.xlsx 格式)`)
+}
+
+// 办理组织关系转入弹窗
+const transferInDialogVisible = ref(false)
+const transferInForm = ref({
+  memberName: '',
+  workNo: '',
+  idCard: '',
+  gender: '男',
+  partyStatus: 1,
+  fromOrgName: '',
+  toOrgName: '中共红河红数信息技术服务有限公司支部委员会',
+  deptName: '红河红数信息技术服务有限公司 · 技术部',
+  jobTitle: '高级工程师',
+  partyPost: '普通党员',
+  letterNo: '',
+  transferDate: new Date().toISOString().slice(0, 10),
+  duesPaidToDate: new Date().toISOString().slice(0, 7),
+  phone: '',
+  transferReason: '高层次大数据专业技术人才引进调入'
+})
+
+function openTransferInDialog() {
+  const defaultBranch = isBranchAdmin.value ? currentBranchNameLocked.value : '中共红河红数信息技术服务有限公司支部委员会'
+  const dept = getDepartmentOptions(defaultBranch)[0]?.value || ''
+  transferInForm.value = {
+    memberName: '',
+    workNo: 'HH-' + (defaultBranch.includes('红数') ? 'HS' : defaultBranch.includes('幂次') ? 'MC' : defaultBranch.includes('链达') ? 'LD' : 'JT') + '-' + String(Math.floor(Math.random() * 800 + 100)),
+    idCard: '',
+    gender: '男',
+    partyStatus: 1,
+    fromOrgName: '',
+    toOrgName: defaultBranch,
+    deptName: dept,
+    jobTitle: '技术骨干 / 业务主管',
+    partyPost: '普通党员',
+    letterNo: `红数转字〔${new Date().getFullYear()}〕第0${transfersList.value.length + 1}号`,
+    transferDate: new Date().toISOString().slice(0, 10),
+    duesPaidToDate: new Date().toISOString().slice(0, 7),
+    phone: '',
+    transferReason: '专业技术骨干选拔调入'
+  }
+  transferInDialogVisible.value = true
+}
+
+function suggestTransferInEmployment() {
+  const depts = getDepartmentOptions(transferInForm.value.toOrgName)
+  if (depts && depts.length > 0) {
+    transferInForm.value.deptName = depts[0].value
+    transferInForm.value.jobTitle = depts[0].jobTitle || '专员'
+  }
+}
+
+function submitTransferIn() {
+  if (!transferInForm.value.memberName.trim()) {
+    ElMessage.warning('请输入转入党员姓名！')
+    return
+  }
+  if (!transferInForm.value.workNo.trim()) {
+    ElMessage.warning('请输入员工工号！')
+    return
+  }
+  if (!transferInForm.value.idCard.trim() || transferInForm.value.idCard.length !== 18) {
+    ElMessage.warning('请输入规范的 18 位公民身份证号！')
+    return
+  }
+  if (!transferInForm.value.fromOrgName.trim()) {
+    ElMessage.warning('请输入原所在党组织！')
+    return
+  }
+  if (!transferInForm.value.letterNo.trim()) {
+    ElMessage.warning('请输入介绍信凭证编号！')
+    return
+  }
+
+  // 1. 生成转接记录
+  const newTransferRecord = {
+    id: Date.now(),
+    memberId: Date.now(),
+    memberName: transferInForm.value.memberName.trim(),
+    workNo: transferInForm.value.workNo.trim(),
+    idCard: transferInForm.value.idCard.trim(),
+    gender: transferInForm.value.gender,
+    phone: transferInForm.value.phone || '1398730' + Math.floor(Math.random() * 8999 + 1000),
+    partyStatus: transferInForm.value.partyStatus,
+    partyPost: transferInForm.value.partyPost || '普通党员',
+    transferType: 1, // 转入
+    fromOrgId: null,
+    fromOrgName: transferInForm.value.fromOrgName.trim(),
+    toOrgId: getCompanyByBranch(transferInForm.value.toOrgName).orgId,
+    toOrgName: transferInForm.value.toOrgName,
+    letterNo: transferInForm.value.letterNo.trim(),
+    transferDate: transferInForm.value.transferDate,
+    transferReason: transferInForm.value.transferReason.trim() || '组织关系接转调入',
+    duesPaidToDate: transferInForm.value.duesPaidToDate,
+    operatorName: currentUser.value?.realName || '杨海',
+    approvalStatus: 2,
+    remark: '介绍信查验无误，已自动同步写入全集团花名册',
+    createdAt: new Date().toISOString()
+  }
+  transfersList.value.unshift(newTransferRecord)
+
+  // 2. 联动花名册：自动建档或恢复在册状态
+  const existingRosterIndex = rosterList.value.findIndex(m => m.workNo === transferInForm.value.workNo.trim())
+  if (existingRosterIndex !== -1) {
+    // 恢复在册
+    const m = rosterList.value[existingRosterIndex]
+    m.branchName = transferInForm.value.toOrgName
+    m.deptName = transferInForm.value.deptName
+    m.jobTitle = transferInForm.value.jobTitle
+    m.partyStatus = transferInForm.value.partyStatus
+    m.partyPost = transferInForm.value.partyPost || '普通党员'
+  } else {
+    // 全新录入花名册
+    rosterList.value.unshift({
+      id: Date.now(),
+      name: transferInForm.value.memberName.trim(),
+      workNo: transferInForm.value.workNo.trim(),
+      idCard: transferInForm.value.idCard.trim(),
+      gender: transferInForm.value.gender,
+      age: 32,
+      branchName: transferInForm.value.toOrgName,
+      deptName: transferInForm.value.deptName,
+      jobTitle: transferInForm.value.jobTitle,
+      partyStatus: transferInForm.value.partyStatus,
+      partyPost: transferInForm.value.partyPost || '普通党员',
+      partyStandingYears: 3,
+      joinPartyDate: '2022-07-01',
+      officialPartyDate: transferInForm.value.partyStatus === 1 ? '2023-07-01' : null,
+      studyHours: 40,
+      studyTarget: 40,
+      duesStatus: 1,
+      nationalCode: '532501' + transferInForm.value.idCard.slice(6, 14) + '01',
+      isFrontline: true,
+      isTechnicalTalent: true,
+      isDualCultivate: false
+    })
+  }
+
+  // 3. 自动同步为系统用户
+  const existsUser = sysUsers.value.some(u => u.workNo === transferInForm.value.workNo.trim())
+  if (!existsUser) {
+    sysUsers.value.push({
+      id: Date.now() + 50,
+      username: transferInForm.value.workNo.trim().toLowerCase(),
+      password: '123456',
+      mustChangePwd: true,
+      realName: transferInForm.value.memberName.trim(),
+      workNo: transferInForm.value.workNo.trim(),
+      phone: transferInForm.value.phone || '13987308888',
+      email: `${transferInForm.value.workNo.trim().toLowerCase()}@honghe-data.com`,
+      orgId: getCompanyByBranch(transferInForm.value.toOrgName).orgId,
+      orgName: transferInForm.value.toOrgName,
+      roleCode: 'PARTY_MEMBER',
+      roleName: '普通在册党员 / 发展成员本人',
+      status: 1,
+      lastLoginTime: '未登录',
+      createdAt: new Date().toISOString().slice(0, 10)
+    })
+  }
+
+  transferInDialogVisible.value = false
+  ElMessage.success(`党员【${transferInForm.value.memberName}】组织关系转入手续已办结，已成功同步建档至【全集团所有党员花名册】！`)
+}
+
+// 办理组织关系转出弹窗
+const transferOutDialogVisible = ref(false)
+const transferOutForm = ref({
+  selectedWorkNo: '',
+  memberId: null,
+  memberName: '',
+  workNo: '',
+  idCard: '',
+  partyStatus: 1,
+  partyPost: '',
+  fromOrgName: '',
+  toOrgName: '',
+  letterNo: '',
+  transferDate: new Date().toISOString().slice(0, 10),
+  duesPaidToDate: new Date().toISOString().slice(0, 7),
+  operatorName: '',
+  transferReason: ''
+})
+
+function openTransferOutDialog() {
+  transferOutForm.value = {
+    selectedWorkNo: '',
+    memberId: null,
+    memberName: '',
+    workNo: '',
+    idCard: '',
+    partyStatus: 1,
+    partyPost: '',
+    fromOrgName: '',
+    toOrgName: '',
+    letterNo: `红数转字〔${new Date().getFullYear()}〕第0${transfersList.value.length + 1}号`,
+    transferDate: new Date().toISOString().slice(0, 10),
+    duesPaidToDate: new Date().toISOString().slice(0, 7),
+    operatorName: currentUser.value?.realName || '杨海',
+    transferReason: '因个人工作调动辞职离职，组织关系转往新接收单位'
+  }
+  transferOutDialogVisible.value = true
+}
+
+function handleSelectTransferOutMember(workNo) {
+  const member = rosterList.value.find(m => m.workNo === workNo)
+  if (member) {
+    transferOutForm.value.memberId = member.id
+    transferOutForm.value.memberName = member.name
+    transferOutForm.value.workNo = member.workNo
+    transferOutForm.value.idCard = member.idCard || '532501199001010000'
+    transferOutForm.value.partyStatus = member.partyStatus
+    transferOutForm.value.partyPost = member.partyPost || '普通党员'
+    transferOutForm.value.fromOrgName = member.branchName
+  }
+}
+
+function submitTransferOut() {
+  if (!transferOutForm.value.selectedWorkNo) {
+    ElMessage.warning('请选择需要转出的党员！')
+    return
+  }
+  if (!transferOutForm.value.toOrgName.trim()) {
+    ElMessage.warning('请输入拟转往接收党组织！')
+    return
+  }
+  if (!transferOutForm.value.letterNo.trim()) {
+    ElMessage.warning('请输入介绍信存根编号！')
+    return
+  }
+  if (!transferOutForm.value.transferReason.trim()) {
+    ElMessage.warning('请输入转出事由！')
+    return
+  }
+
+  ElMessageBox.confirm(
+    `办理组织关系转出后，党员【${transferOutForm.value.memberName}】将依法依规从【全集团所有党员花名册】中除名注销，流转至转接历史归档。确认办理除名转出？`,
+    '确认办理组织关系转出',
+    {
+      confirmButtonText: '确认转出并除名',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(() => {
+    // 1. 生成转出记录
+    const newTransferRecord = {
+      id: Date.now(),
+      memberId: transferOutForm.value.memberId || Date.now(),
+      memberName: transferOutForm.value.memberName,
+      workNo: transferOutForm.value.workNo,
+      idCard: transferOutForm.value.idCard,
+      gender: '男',
+      phone: '13987309999',
+      partyStatus: transferOutForm.value.partyStatus,
+      partyPost: transferOutForm.value.partyPost || '普通党员',
+      transferType: 2, // 转出
+      fromOrgId: getCompanyByBranch(transferOutForm.value.fromOrgName).orgId,
+      fromOrgName: transferOutForm.value.fromOrgName,
+      toOrgId: null,
+      toOrgName: transferOutForm.value.toOrgName.trim(),
+      letterNo: transferOutForm.value.letterNo.trim(),
+      transferDate: transferOutForm.value.transferDate,
+      transferReason: transferOutForm.value.transferReason.trim(),
+      duesPaidToDate: transferOutForm.value.duesPaidToDate,
+      operatorName: transferOutForm.value.operatorName || currentUser.value?.realName || '杨海',
+      approvalStatus: 2,
+      remark: '党费已结清，组织关系凭证已发出，已自花名册除名注销',
+      createdAt: new Date().toISOString()
+    }
+    transfersList.value.unshift(newTransferRecord)
+
+    // 2. 联动花名册：从 rosterList 中除名移除
+    const rosterIdx = rosterList.value.findIndex(m => m.workNo === transferOutForm.value.workNo)
+    if (rosterIdx !== -1) {
+      rosterList.value.splice(rosterIdx, 1)
+    }
+
+    transferOutDialogVisible.value = false
+    ElMessage.success(`党员【${transferOutForm.value.memberName}】组织关系转出办结，已正式从【全集团所有党员花名册】中除名注销并归档！`)
+  }).catch(() => {})
+}
+
+// 凭证详情弹窗
+const viewTransferDialogVisible = ref(false)
+const currentTransferView = ref(null)
+
+function viewTransferRecord(row) {
+  currentTransferView.value = { ...row }
+  viewTransferDialogVisible.value = true
+}
+
+function printTransferCert() {
+  ElMessage.success('已连接打印终端，正在打印《中国共产党党员组织关系介绍信存根与转接凭证》！')
+}
+
+// --- 子模块 2: 党员党内职务调整备案 ---
+const adjustmentsList = ref([...MOCK_POSITION_ADJUSTMENTS])
+const adjustmentSearchKeyword = ref('')
+const adjustmentBranchFilter = ref('')
+const adjustmentPostFilter = ref('')
+
+const filteredAdjustmentsList = computed(() => {
+  return adjustmentsList.value.filter(a => {
+    // 权限范围
+    if (currentRole.value === 'branch_admin_hs' && !a.orgName.includes('红数')) return false
+    if (currentRole.value === 'branch_admin_mc' && !a.orgName.includes('幂次')) return false
+    if (currentRole.value === 'branch_admin_ld' && !a.orgName.includes('链达')) return false
+    if (currentRole.value === 'party_member' && a.workNo !== (currentUser.value?.workNo || 'HH-HS-012')) return false
+
+    if (adjustmentBranchFilter.value && a.orgName !== adjustmentBranchFilter.value) return false
+    if (adjustmentPostFilter.value && a.newPost !== adjustmentPostFilter.value) return false
+    if (adjustmentSearchKeyword.value) {
+      const kw = adjustmentSearchKeyword.value.toLowerCase()
+      const matchName = (a.memberName || '').toLowerCase().includes(kw)
+      const matchNo = (a.workNo || '').toLowerCase().includes(kw)
+      const matchDoc = (a.documentNo || '').toLowerCase().includes(kw)
+      const matchPost = (a.newPost || '').toLowerCase().includes(kw)
+      const matchOld = (a.oldPost || '').toLowerCase().includes(kw)
+      if (!matchName && !matchNo && !matchDoc && !matchPost && !matchOld) return false
+    }
+    return true
+  })
+})
+
+const secretaryCount = computed(() => adjustmentsList.value.filter(a => a.newPost && a.newPost.includes('书记')).length)
+const committeeCount = computed(() => adjustmentsList.value.filter(a => a.newPost && a.newPost.includes('委员')).length)
+
+function resetAdjustmentFilters() {
+  adjustmentSearchKeyword.value = ''
+  adjustmentBranchFilter.value = ''
+  adjustmentPostFilter.value = ''
+}
+
+function exportAdjustmentExcel() {
+  ElMessage.success(`已成功导出【中共红河数据产业集团党内职务调整任免备案台账】(共 ${adjustmentsList.value.length} 条记录，.xlsx 格式)`)
+}
+
+// 新增职务调整备案弹窗
+const adjustmentDialogVisible = ref(false)
+const adjustmentForm = ref({
+  selectedWorkNo: '',
+  memberId: null,
+  memberName: '',
+  workNo: '',
+  orgName: '',
+  oldPost: '',
+  newPost: '',
+  adjustType: '任职任命',
+  documentNo: '',
+  effectiveDate: new Date().toISOString().slice(0, 10),
+  approvalUnit: '中共红河数据产业集团有限公司总支部委员会',
+  dutyDescription: ''
+})
+
+function openAdjustmentDialog() {
+  adjustmentForm.value = {
+    selectedWorkNo: '',
+    memberId: null,
+    memberName: '',
+    workNo: '',
+    orgName: '',
+    oldPost: '',
+    newPost: '党支部书记',
+    adjustType: '任职任命',
+    documentNo: `红数党总任〔${new Date().getFullYear()}〕第0${adjustmentsList.value.length + 1}号`,
+    effectiveDate: new Date().toISOString().slice(0, 10),
+    approvalUnit: '中共红河数据产业集团有限公司总支部委员会',
+    dutyDescription: '主持党支部班子全面工作，统筹抓好基层党组织政治建设与生产经营业务融合'
+  }
+  adjustmentDialogVisible.value = true
+}
+
+function handleSelectAdjustmentMember(workNo) {
+  const m = rosterList.value.find(item => item.workNo === workNo)
+  if (m) {
+    adjustmentForm.value.memberId = m.id
+    adjustmentForm.value.memberName = m.name
+    adjustmentForm.value.workNo = m.workNo
+    adjustmentForm.value.orgName = m.branchName
+    adjustmentForm.value.oldPost = m.partyPost || '普通党员'
+  }
+}
+
+function submitAdjustment() {
+  if (!adjustmentForm.value.selectedWorkNo) {
+    ElMessage.warning('请选择任职党员！')
+    return
+  }
+  if (!adjustmentForm.value.newPost) {
+    ElMessage.warning('请选择调整后新任党内职务！')
+    return
+  }
+  if (!adjustmentForm.value.documentNo.trim()) {
+    ElMessage.warning('请输入批复/批文编号！')
+    return
+  }
+  if (!adjustmentForm.value.approvalUnit.trim()) {
+    ElMessage.warning('请输入批准机关/决定单位！')
+    return
+  }
+
+  // 1. 生成调整记录
+  const newAdjustmentRecord = {
+    id: Date.now(),
+    memberId: adjustmentForm.value.memberId || Date.now(),
+    memberName: adjustmentForm.value.memberName,
+    workNo: adjustmentForm.value.workNo,
+    orgId: getCompanyByBranch(adjustmentForm.value.orgName).orgId,
+    orgName: adjustmentForm.value.orgName,
+    oldPost: adjustmentForm.value.oldPost || '普通党员',
+    newPost: adjustmentForm.value.newPost,
+    adjustType: adjustmentForm.value.adjustType,
+    documentNo: adjustmentForm.value.documentNo.trim(),
+    effectiveDate: adjustmentForm.value.effectiveDate,
+    approvalUnit: adjustmentForm.value.approvalUnit.trim(),
+    dutyDescription: adjustmentForm.value.dutyDescription.trim(),
+    operatorName: currentUser.value?.realName || '杨海',
+    remark: '调整批文备案归档，花名册职务已自动更新',
+    createdAt: new Date().toISOString()
+  }
+  adjustmentsList.value.unshift(newAdjustmentRecord)
+
+  // 2. 联动花名册：自动更新党内职务
+  const rosterItem = rosterList.value.find(m => m.workNo === adjustmentForm.value.workNo)
+  if (rosterItem) {
+    rosterItem.partyPost = adjustmentForm.value.newPost
+  }
+
+  adjustmentDialogVisible.value = false
+  ElMessage.success(`党员【${adjustmentForm.value.memberName}】党内职务调整备案成功（文号：${adjustmentForm.value.documentNo}），已自动同步更新花名册党内职务为【${adjustmentForm.value.newPost}】！`)
+}
+
+// 职务调整备案表详情
+const viewAdjustmentDialogVisible = ref(false)
+const currentAdjustmentView = ref(null)
+
+function viewAdjustmentRecord(row) {
+  currentAdjustmentView.value = { ...row }
+  viewAdjustmentDialogVisible.value = true
+}
+
+function printAdjustmentCert() {
+  ElMessage.success('已连接打印终端，正在打印《党员领导干部党内职务调整任免备案登记表》！')
 }
 
 // ==========================================
@@ -4688,7 +6148,91 @@ function handleAdvanceStep() {
     return
   }
 
-  ElMessage.success({ message: `第 ${selectedStepInDrawer.value} 步审核归档通过！已成功推进至下一业务节点。`, duration: 3000 })
+  const today = new Date().toISOString().slice(0, 10)
+  const currentStep = selectedStepInDrawer.value
+  const mem = membersList.value.find(m => m.id === currentMember.value.id)
+
+  // 4. 关键节点一：若为第 25 步（预备党员转正审批与归档）
+  if (currentStep === 25) {
+    if (mem) {
+      mem.currentStageId = 5
+      mem.currentStepId = 25
+      mem.stepStatus = 'finished'
+      mem.officialDate = today
+    }
+    // 据实同步花名册为【正式党员】（1），更新正式转正日期，开启党龄折算
+    syncMemberToRoster(currentMember.value, 1, {
+      partyPost: '普通党员',
+      officialPartyDate: today
+    })
+    ElMessageBox.alert(
+      `热烈祝贺！【${currentMember.value.name}】同志预备党员转正申请已获党总支审批通过，正式成为中国共产党正式党员！系统已据实将花名册政治面貌同步升级为【正式党员】，并开始折算党龄。`,
+      '转正审批通过 · 花名册据实同步为正式党员',
+      { type: 'success', confirmButtonText: '查看花名册档案' }
+    ).then(() => {
+      activeTab.value = 'roster'
+    }).catch(() => {})
+    return
+  }
+
+  // 5. 关键节点二：若为第 20 步（基层党委审批预备党员）
+  if (currentStep === 20) {
+    if (mem) {
+      mem.currentStepId = 21 // 推进至第21步（入党宣誓与预备期考察）
+      mem.currentStageId = 5
+      mem.probationaryDate = today
+      selectedStepInDrawer.value = 21
+    }
+    // 据实同步花名册为【预备党员】（2），记录入党时间
+    syncMemberToRoster(currentMember.value, 2, {
+      partyPost: '预备党员',
+      joinPartyDate: today
+    })
+    ElMessageBox.alert(
+      `【${currentMember.value.name}】同志接收为预备党员申请已获党总支审批通过，正式成为中国共产党预备党员！系统已据实将花名册政治面貌同步升级为【预备党员】（入党时间：${today}），请及时组织入党宣誓。`,
+      '审批通过 · 花名册据实同步为预备党员',
+      { type: 'success', confirmButtonText: '查看花名册档案' }
+    ).then(() => {
+      activeTab.value = 'roster'
+    }).catch(() => {})
+    return
+  }
+
+  // 6. 普通步骤推进与流转判定
+  let nextStep = currentStep
+  if (mem && currentStep === mem.currentStepId && mem.currentStepId < 25) {
+    nextStep = mem.currentStepId + 1
+    mem.currentStepId = nextStep
+    if (nextStep >= 21) mem.currentStageId = 5
+    else if (nextStep >= 17) mem.currentStageId = 4
+    else if (nextStep >= 12) mem.currentStageId = 3
+    else if (nextStep >= 6) mem.currentStageId = 2
+    else mem.currentStageId = 1
+    selectedStepInDrawer.value = nextStep
+  }
+
+  // 7. 关键节点三：步骤跨入第 12 步（确定发展对象）
+  if (nextStep >= 12 && nextStep < 17) {
+    if (mem && !mem.targetDate) mem.targetDate = today
+    syncMemberToRoster(currentMember.value, 3, { partyPost: '发展对象' })
+    ElMessage.success(`第 ${currentStep} 步审核归档通过！已成功推进至第 ${nextStep} 步。该同志已确定为【发展对象】，花名册政治面貌已据实同步升级为【发展对象】！`)
+    return
+  }
+
+  // 8. 关键节点四：步骤跨入第 6 步（确定入党积极分子）
+  if (nextStep >= 6 && nextStep < 12) {
+    if (mem && !mem.activistDate) mem.activistDate = today
+    syncMemberToRoster(currentMember.value, 4, { partyPost: '积极分子' })
+    ElMessage.success(`第 ${currentStep} 步审核归档通过！已成功推进至第 ${nextStep} 步。该同志已确定为【入党积极分子】，花名册政治面貌已据实同步升级为【入党积极分子】！`)
+    return
+  }
+
+  // 9. 阶段一内部常规流转（第 1~5 步）：保持入党申请人状态
+  if (nextStep < 6) {
+    syncMemberToRoster(currentMember.value, 5, { partyPost: '入党申请人' })
+  }
+
+  ElMessage.success({ message: `第 ${currentStep} 步审核归档通过！已成功推进至第 ${nextStep} 步业务节点。`, duration: 3000 })
 }
 
 function previewMaterial(row) {
@@ -4717,6 +6261,26 @@ function exportTableData() {
 <style scoped>
 .dj-root {
   min-height: 100vh;
+}
+
+.cross-unit-alert {
+  margin: 4px 0 16px 0;
+  padding: 10px 14px;
+  background-color: #fdf6ec;
+  border: 1px solid #faecd8;
+  border-radius: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #b88230;
+}
+.cross-unit-alert .el-icon {
+  font-size: 16px;
+  margin-top: 2px;
+  color: #e6a23c;
+  flex-shrink: 0;
 }
 
 /* ========================================================================= */
@@ -6099,5 +7663,212 @@ function exportTableData() {
 .user-workno {
   font-size: 11px;
   color: #8c939d;
+}
+
+/* ========================================================================= */
+/* 党员转接及调整备案模块样式                                                */
+/* ========================================================================= */
+.transfer-filing-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sub-tab-nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  padding: 12px 18px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.sub-nav-tips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.avatar-green {
+  background: #10b981 !important;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.avatar-gray {
+  background: #94a3b8 !important;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.avatar-red {
+  background: #dc2626 !important;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.doc-code-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+/* 组织关系介绍信与任免凭证样卡 */
+.transfer-cert-box {
+  background: #fffdfa;
+  border: 2px solid #e2d9cc;
+  border-radius: 8px;
+  padding: 24px;
+  position: relative;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.cert-header {
+  text-align: center;
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.cert-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.cert-badge.bg-gold {
+  background: #d97706;
+}
+
+.cert-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #991b1b;
+  margin: 4px 0 8px;
+  letter-spacing: 1.5px;
+  font-family: "SimSun", "Songti SC", "STSong", serif;
+}
+
+.cert-no {
+  font-size: 13px;
+  color: #78350f;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.cert-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #b91c1c, transparent);
+  margin: 12px 0 20px;
+}
+
+.cert-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 18px;
+  font-size: 13.5px;
+}
+
+.cert-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1.6;
+}
+
+.cert-row.full-width {
+  grid-column: 1 / -1;
+}
+
+.cert-lbl {
+  color: #64748b;
+  font-weight: 500;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.cert-val {
+  color: #1e293b;
+}
+
+.cert-val.font-bold {
+  font-weight: 700;
+}
+
+.cert-val.text-red {
+  color: #dc2626;
+}
+
+.cert-val.text-blue {
+  color: #2563eb;
+}
+
+.cert-val.text-muted {
+  color: #94a3b8;
+}
+
+.cert-val.text-green {
+  color: #16a34a;
+}
+
+.cert-seal-box {
+  margin-top: 32px;
+  padding-top: 16px;
+  text-align: right;
+  position: relative;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.seal-party-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 4px;
+}
+
+.seal-date-text {
+  font-size: 13px;
+  color: #64748b;
+  font-family: monospace;
+}
+
+.cert-red-stamp {
+  position: absolute;
+  right: 20px;
+  bottom: -6px;
+  width: 88px;
+  height: 88px;
+  border: 3px solid rgba(220, 38, 38, 0.75);
+  border-radius: 50%;
+  color: rgba(220, 38, 38, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+  transform: rotate(-15deg);
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(220, 38, 38, 0.2);
 }
 </style>

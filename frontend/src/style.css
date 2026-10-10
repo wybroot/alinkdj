@@ -54,3 +54,31 @@ html, body, #app {
 ::-webkit-scrollbar-thumb:hover {
   background: #c0c4cc;
 }
+
+/* 全局表单与弹窗排版优化：防止文字换行与复选框挤压 */
+.el-form-item__label {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  font-weight: 500;
+}
+
+.el-checkbox,
+.el-checkbox__label,
+.el-radio,
+.el-radio__label {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+}
+
+.el-checkbox {
+  margin-right: 18px !important;
+}
+
+.el-checkbox:last-child {
+  margin-right: 0 !important;
+}
+
+.el-dialog__body {
+  padding-top: 15px !important;
+  padding-bottom: 20px !important;
+}
