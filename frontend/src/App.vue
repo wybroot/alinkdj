@@ -9,7 +9,7 @@
     <!-- 1. 登录后普通业务端界面                                                    -->
     <!-- ========================================================================= -->
     <div v-else-if="!isBigScreenMode" class="dj-app">
-      <!-- 顶部导航栏 -->
+      <!-- 顶部系统栏 (单层纯粹设计：庄严党建红金渐变，专注标识与用户控制) -->
       <header class="dj-header">
         <div class="header-left">
           <div class="logo-badge">
@@ -88,7 +88,27 @@
 
       <!-- 主体内容区域 -->
       <main class="dj-main-container">
-        <el-tabs v-model="activeTab" class="dj-nav-tabs">
+        <!-- 独立现代白底主导航卡片栏：与顶部栏彻底解耦、留出舒适呼吸间距，左右宽敞舒展不拥挤 -->
+        <div class="dj-nav-deck">
+          <div 
+            v-for="item in navMenuItems" 
+            :key="item.name"
+            v-show="item.visible"
+            class="deck-nav-item"
+            :class="{ 'is-active': activeTab === item.name }"
+            @click="activeTab = item.name"
+          >
+            <el-icon class="deck-item-icon"><component :is="item.icon" /></el-icon>
+            <span class="deck-item-label">{{ item.label }}</span>
+            <el-badge 
+              v-if="item.name === 'notices' && unreadNoticeCount > 0" 
+              :value="unreadNoticeCount" 
+              class="deck-item-badge" 
+            />
+          </div>
+        </div>
+
+        <el-tabs v-model="activeTab" class="dj-content-tabs">
           <!-- 标签页 1: 发展党员全景工作台 (普通党员/支部书记/总支/纪检均可查阅，按权限控制操作) -->
           <el-tab-pane v-if="hasPermission('workbench:view')" name="workbench">
             <template #label>
@@ -3569,6 +3589,66 @@ const currentUserOrgShort = computed(() => {
   return '集团党总支'
 })
 
+/**
+ * 顶部一体化主导航菜单配置 (严格对应9大一级业务模块与细粒度权限控制)
+ */
+const navMenuItems = computed(() => [
+  {
+    name: 'workbench',
+    label: '发展党员全景工作台',
+    icon: 'Operation',
+    visible: hasPermission('workbench:view')
+  },
+  {
+    name: 'roster',
+    label: '党员花名册',
+    icon: 'User',
+    visible: hasPermission('roster:view')
+  },
+  {
+    name: 'transfer_filing',
+    label: '党员转接及调整备案',
+    icon: 'Switch',
+    visible: hasPermission('roster:view') || hasPermission('workbench:transfer')
+  },
+  {
+    name: 'meetings',
+    label: '“三会一课”/组织生活',
+    icon: 'Calendar',
+    visible: hasPermission('meeting:view')
+  },
+  {
+    name: 'honors',
+    label: '组织/个人奖惩或荣誉',
+    icon: 'Trophy',
+    visible: hasPermission('honor:view')
+  },
+  {
+    name: 'templates',
+    label: '文书知识库',
+    icon: 'DocumentCopy',
+    visible: hasPermission('template:view')
+  },
+  {
+    name: 'cockpit',
+    label: '数据驾驶舱',
+    icon: 'DataAnalysis',
+    visible: hasPermission('cockpit:view')
+  },
+  {
+    name: 'notices',
+    label: '通知中心',
+    icon: 'BellFilled',
+    visible: hasPermission('notice:view')
+  },
+  {
+    name: 'users',
+    label: '党务用户管理',
+    icon: 'Avatar',
+    visible: hasRole('sys_admin')
+  }
+])
+
 function handleLoginSuccess(payload) {
   currentUser.value = payload.user
   currentRole.value = payload.role
@@ -6390,6 +6470,11 @@ function exportTableData() {
   box-shadow: 4px 0 8px #fff8e6;
 }
 
+.marquee-tag .el-icon {
+  font-size: 14px;
+  color: #c21c1d;
+}
+
 .marquee-track-container {
   flex: 1;
   overflow: hidden;
@@ -6400,9 +6485,9 @@ function exportTableData() {
 .marquee-scroller {
   display: flex;
   align-items: center;
-  gap: 36px;
+  gap: 40px;
   white-space: nowrap;
-  animation: marquee-roll-left 34s linear infinite;
+  animation: marquee-roll-left 32s linear infinite;
   will-change: transform;
 }
 
@@ -6442,6 +6527,7 @@ function exportTableData() {
 }
 
 .alert-item:hover .alert-text {
+  color: #c21c1d;
   text-decoration: underline;
 }
 
@@ -6474,21 +6560,99 @@ function exportTableData() {
 }
 
 .dj-main-container {
-  padding: 16px 28px 40px;
+  padding: 20px 28px 40px;
   flex: 1;
 }
 
-.dj-nav-tabs :deep(.el-tabs__item) {
-  font-size: 15px;
-  font-weight: 600;
-  height: 48px;
-  line-height: 48px;
-}
-
-.tab-label {
+/* ========================================================================= */
+/* 独立现代白底主导航卡片栏：彻底解耦顶部栏，拥有通透留白与呼吸感                */
+/* ========================================================================= */
+.dj-nav-deck {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 22px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  border: 1px solid #ebeef5;
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 10px 14px; /* 舒适宽松的行列间隙，彻底告别左右拥挤 */
+}
+
+/* 单个胶囊药丸导航项：左右舒展、呼吸感极强 */
+.deck-nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* 悬停态：优雅浅红微浮动 */
+.deck-nav-item:hover {
+  color: #c21c1d;
+  background-color: #fff5f5;
+  border-color: #fecaca;
+  transform: translateY(-1px);
+}
+
+.deck-nav-item .deck-item-icon {
+  font-size: 16px;
+  opacity: 0.85;
+  transition: transform 0.25s ease;
+}
+
+.deck-nav-item:hover .deck-item-icon {
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+/* 选中激活态：高质感党建红渐变卡片 + 纯白高亮 + 柔和党建红微光投影 */
+.deck-nav-item.is-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #c21c1d 0%, #990f10 100%);
+  border-color: #990f10;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(194, 28, 29, 0.28);
+  transform: translateY(-1px);
+}
+
+.deck-nav-item.is-active .deck-item-icon {
+  color: #ffffff;
+  opacity: 1;
+}
+
+.deck-item-badge {
+  margin-left: 2px;
+}
+.deck-item-badge :deep(.el-badge__content) {
+  background-color: #f56c6c;
+  border: 1.5px solid #fff;
+  font-weight: bold;
+}
+.deck-nav-item.is-active .deck-item-badge :deep(.el-badge__content) {
+  background-color: #ffd04b;
+  color: #8b0000;
+  border-color: #c21c1d;
+}
+
+/* 隐藏主体内容区 el-tabs 头部，由独立白底主导航卡片栏直接驱动视图切换 */
+.dj-content-tabs :deep(.el-tabs__header) {
+  display: none !important;
+}
+
+.dj-content-tabs :deep(.el-tabs__content) {
+  overflow: visible !important;
 }
 
 /* 5大阶段横幅 */
