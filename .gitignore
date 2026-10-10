@@ -55,3 +55,8 @@ logs/
 .scannerwork/
 .coverage
 .nyc_output/
+
+# 环境变量与密钥文件（禁止提交敏感配置）
+.env
+.env.*
+!.env.example

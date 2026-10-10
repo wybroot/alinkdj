@@ -17,6 +17,8 @@ services:
       - ./docs/schema-pg.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
     ports:
       - "5432:5432"
+    security_opt:
+      - seccomp:unconfined
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U party_user -d honghe_party_db"]
       interval: 5s
@@ -64,6 +66,8 @@ services:
     image: party-building-frontend:1.0.0
     container_name: party-vue-frontend
     restart: always
+    security_opt:
+      - seccomp:unconfined
     ports:
       - "80:80"
     depends_on:
